@@ -1,0 +1,17 @@
+[Unit]
+Description=Minecraft Headless Client Bot & Web Dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/minecraft-bot
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+# Speicherbegrenzung für 1GB RAM Server (z.B. max. 300MB)
+MemoryMax=300M
+
+[Install]
+WantedBy=multi-user.target
