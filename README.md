@@ -172,4 +172,4 @@ Configured bot profiles are saved in `bots.json`. Microsoft login tokens are iso
 
 ---
 
-**Made by melonengolem** &middot; [GitHub: ldrnico](https://github.com/ldrnico)
+**Made by melonengolemm** &middot; [GitHub: ldrnico](https://github.com/ldrnico)
