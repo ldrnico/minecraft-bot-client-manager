@@ -2,7 +2,7 @@
 
 An ultra-lightweight, headless Minecraft client manager built with **Node.js (v22 LTS) & Mineflayer**, specially optimized for **Ubuntu Linux Servers (even with just 1 GB RAM)**.
 
-Run multiple Minecraft accounts simultaneously across different servers with an isolated **multi-bot engine**, automatic re-join, anti-AFK arm swinging, in-game chat & commands, and a modern reactive dark-mode web dashboard.
+Run multiple Minecraft accounts simultaneously across different servers with an isolated **multi-bot engine**, automatic re-join, anti-AFK arm swinging, in-game chat & commands, and a modern reactive web dashboard.
 
 ---
 
