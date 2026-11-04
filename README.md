@@ -159,7 +159,7 @@ free -h
 ## ❓ Troubleshooting
 
 ### Web dashboard won't load?
-Ensure port 3000 is open in your cloud provider's firewall (e.g., Hetzner Cloud Firewall, AWS Security Group) as well as UFW:
+Ensure port 3000 is open in your cloud provider's firewall as well as UFW:
 ```bash
 sudo ufw allow 3000/tcp
 ```
