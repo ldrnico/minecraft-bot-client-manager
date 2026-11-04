@@ -4,8 +4,6 @@ An ultra-lightweight, headless Minecraft client manager built with **Node.js (v2
 
 Run multiple Minecraft accounts simultaneously across different servers with an isolated **multi-bot engine**, automatic re-join, anti-AFK arm swinging, in-game chat & commands, and a modern reactive web dashboard.
 
----
-
 ## 💡 Why This Solution for 1 GB RAM VPS?
 
 Running vanilla Minecraft Java with a graphical environment requires at least 2 GB of RAM and a full desktop stack (X11 / VNC), instantly triggering Out-Of-Memory (OOM) crashes on low-end servers.
