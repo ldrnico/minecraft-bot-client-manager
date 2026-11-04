@@ -20,6 +20,7 @@ const PORT = process.env.WEB_PORT || 3000;
 const JWT_SECRET = process.env.WEB_SECRET || 'mc_bot_secret_' + (process.env.WEB_PASSWORD || 'secret123');
 
 // Dateipfade
+const ADMIN_FILE = path.join(__dirname, 'admin.json');
 const USERS_FILE = path.join(__dirname, 'users.json');
 const BOTS_FILE = path.join(__dirname, 'bots.json');
 const LEGACY_CONFIG_FILE = path.join(__dirname, 'config.json');
@@ -30,7 +31,7 @@ if (!fs.existsSync(AUTH_CACHE_BASE)) {
 }
 
 // -------------------------------------------------------------
-// 1. Benutzerverwaltung & Kryptographie
+// 1. Admin-Authentifizierung & Kryptographie
 // -------------------------------------------------------------
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');
@@ -71,64 +72,76 @@ function verifyToken(token) {
   }
 }
 
-function loadUsers() {
-  if (fs.existsSync(USERS_FILE)) {
+function loadAdmin() {
+  if (fs.existsSync(ADMIN_FILE)) {
     try {
-      const data = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-      if (Array.isArray(data) && data.length > 0) return data;
+      const data = JSON.parse(fs.readFileSync(ADMIN_FILE, 'utf8'));
+      if (data && data.username && data.hash && data.salt) return data;
     } catch (e) {
-      console.error('Fehler beim Lesen von users.json:', e.message);
+      console.error('Fehler beim Lesen von admin.json:', e.message);
     }
   }
 
+  // Migration aus bestehender users.json, falls vorhanden
+  if (fs.existsSync(USERS_FILE)) {
+    try {
+      const users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+      if (Array.isArray(users)) {
+        const found = users.find(u => u.role === 'admin') || users[0];
+        if (found && found.salt && found.hash) {
+          const migrated = {
+            username: found.username || 'admin',
+            salt: found.salt,
+            hash: found.hash,
+            updatedAt: found.createdAt || new Date().toISOString(),
+          };
+          saveAdmin(migrated);
+          console.log(`[AUTH] Admin-Account aus users.json nach admin.json migriert: "${migrated.username}"`);
+          return migrated;
+        }
+      }
+    } catch (_) {}
+  }
+
   // Initialer Admin aus .env oder Standard
-  const initialUser = process.env.WEB_USER || 'admin';
-  const initialPass = process.env.WEB_PASSWORD || 'admin123';
-  const { salt, hash } = hashPassword(initialPass);
+  const username = process.env.WEB_USER || 'admin';
+  const password = process.env.WEB_PASSWORD || 'admin123';
+  const { salt, hash } = hashPassword(password);
 
-  const defaultUsers = [
-    {
-      id: 'u_' + crypto.randomBytes(4).toString('hex'),
-      username: initialUser,
-      salt,
-      hash,
-      role: 'admin',
-      createdAt: new Date().toISOString(),
-    },
-  ];
+  const adminData = {
+    username,
+    salt,
+    hash,
+    updatedAt: new Date().toISOString(),
+  };
 
-  saveUsers(defaultUsers);
-  console.log(`[AUTH] Neuer Standard-Admin angelegt: Benutzername "${initialUser}"`);
-  return defaultUsers;
+  saveAdmin(adminData);
+  console.log(`[AUTH] Admin-Account initialisiert: Benutzername "${username}"`);
+  return adminData;
 }
 
-function saveUsers(users) {
+function saveAdmin(data) {
   try {
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
+    fs.writeFileSync(ADMIN_FILE, JSON.stringify(data, null, 2), 'utf8');
   } catch (e) {
-    console.error('Fehler beim Speichern von users.json:', e.message);
+    console.error('Fehler beim Speichern von admin.json:', e.message);
   }
 }
 
-let usersList = loadUsers();
-
-function getUserByUsername(username) {
-  return usersList.find(u => u.username.toLowerCase() === (username || '').toLowerCase());
-}
+let adminAccount = loadAdmin();
 
 // -------------------------------------------------------------
 // 2. Minecraft Bot Profile & Datenhaltung
 // -------------------------------------------------------------
 const DEFAULT_BOT_SETTINGS = {
-  name: 'PrimeBlocks Bot',
-  ownerUsername: 'admin',
-  host: 'primeblocks.net',
+  name: 'Bot 1',
+  host: '',
   port: 25565,
-  username: 'MelonengolemGHG',
+  username: '',
   version: '',
-  autoReconnect: true,
+  autoReconnect: false,
   reconnectDelaySec: 10,
-  onJoinCommands: ['/server cb1'],
+  onJoinCommands: [],
   onJoinDelaySec: 3,
   enablePhysics: true,
   antiAfk: true,
@@ -140,32 +153,14 @@ function loadBotConfigs() {
   if (fs.existsSync(BOTS_FILE)) {
     try {
       const data = JSON.parse(fs.readFileSync(BOTS_FILE, 'utf8'));
-      if (Array.isArray(data) && data.length > 0) return data;
+      if (Array.isArray(data)) return data;
     } catch (e) {
       console.error('Fehler beim Lesen von bots.json:', e.message);
     }
   }
 
-  // Migration aus bestehender config.json
-  let migratedConfig = { ...DEFAULT_BOT_SETTINGS };
-  if (fs.existsSync(LEGACY_CONFIG_FILE)) {
-    try {
-      const legacyData = JSON.parse(fs.readFileSync(LEGACY_CONFIG_FILE, 'utf8'));
-      migratedConfig = { ...migratedConfig, ...legacyData };
-      console.log('[BOTS] Bestehende config.json erfolgreich in Bot-Profil migriert.');
-    } catch (e) {}
-  }
-
-  const defaultBots = [
-    {
-      id: 'bot_default',
-      ...migratedConfig,
-      createdAt: new Date().toISOString(),
-    },
-  ];
-
-  saveBotConfigs(defaultBots);
-  return defaultBots;
+  // Beim ersten Start existiert standardmäßig noch kein Bot
+  return [];
 }
 
 function saveBotConfigs(bots) {
@@ -217,7 +212,6 @@ class BotInstance {
     this.config = { ...config };
     this.id = config.id;
     this.name = config.name || `Bot (${this.config.username})`;
-    this.ownerUsername = config.ownerUsername || 'admin';
     this.onBroadcast = onBroadcast;
 
     this.bot = null;
@@ -259,7 +253,6 @@ class BotInstance {
     return {
       id: this.id,
       name: this.name,
-      ownerUsername: this.ownerUsername,
       botStatus: this.status,
       msaCode: this.msaCodeInfo,
       autoReconnect: this.config.autoReconnect !== false,
@@ -281,7 +274,6 @@ class BotInstance {
     return {
       id: this.id,
       name: this.name,
-      ownerUsername: this.ownerUsername,
       host: this.config.host,
       port: this.config.port,
       username: this.config.username,
@@ -326,13 +318,13 @@ class BotInstance {
     const intervalMs = intervalMin * 60 * 1000;
     this.nextPeriodicReconnectTimestamp = Date.now() + intervalMs;
 
-    const targetTime = new Date(this.nextPeriodicReconnectTimestamp).toLocaleTimeString('de-DE');
-    this.addLog('system', `⏱️ Periodischer Reconnect aktiv: Neuer Reconnect in ${intervalMin} Minuten geplant (${targetTime}).`);
+    const targetTime = new Date(this.nextPeriodicReconnectTimestamp).toLocaleTimeString('en-US');
+    this.addLog('system', `⏱️ Periodic reconnect active: Next reconnect scheduled in ${intervalMin} minutes (${targetTime}).`);
     this.broadcastState();
 
     this.periodicReconnectTimer = setTimeout(() => {
       if (this.bot && this.status === 'online') {
-        this.addLog('system', `🔄 Geplanter ${intervalMin}-Minuten-Reconnect wird ausgeführt...`);
+        this.addLog('system', `🔄 Scheduled ${intervalMin}-minute periodic reconnect executing...`);
         this.stopPeriodicReconnect();
         try {
           this.bot.quit();
@@ -407,14 +399,21 @@ class BotInstance {
       this.connectionWatchdog = null;
     }
 
+    if (!this.config.host || !this.config.username) {
+      this.status = 'disconnected';
+      this.broadcastState();
+      this.addLog('info', 'Please configure server address and Minecraft player name in Bot Settings.');
+      return;
+    }
+
     this.status = 'connecting';
     this.broadcastState();
-    this.addLog('system', `Verbinde mit ${this.config.host}:${this.config.port} als ${this.config.username} (Microsoft-Account)...`);
+    this.addLog('system', `Connecting to ${this.config.host}:${this.config.port} as ${this.config.username} (Microsoft Account)...`);
 
-    // Watchdog Timeout (35 Sekunden für Server-Handshake; wird bei MSA-Login pausiert)
+    // Watchdog Timeout (35 seconds for server handshake; paused during MSA login)
     this.connectionWatchdog = setTimeout(() => {
       if (this.status === 'connecting' && !this.msaCodeInfo) {
-        this.addLog('error', '⚠️ Verbindungs-Timeout (35s)! Server lässt den Bot nicht in die Welt.');
+        this.addLog('error', '⚠️ Connection timeout (35s)! Server is not letting the bot into the world.');
         this.scheduleReconnect();
       }
     }, 35000);
@@ -426,7 +425,7 @@ class BotInstance {
       auth: 'microsoft',
       profilesFolder: this.profileAuthFolder,
       onMsaCode: data => {
-        // 1. 35s Watchdog sofort abbrechen – der Benutzer benötigt Zeit für den Login!
+        // 1. Cancel 35s watchdog immediately – user needs time to verify code
         if (this.connectionWatchdog) {
           clearTimeout(this.connectionWatchdog);
           this.connectionWatchdog = null;
@@ -444,15 +443,15 @@ class BotInstance {
 
         this.addLog(
           'warn',
-          `🔑 Microsoft-Login erforderlich für "${this.config.username}"! Öffne ${uri} und gib folgenden Code ein: ${code} (Gültig für ${Math.round(expiresInSec / 60)} Minuten)`
+          `🔑 Microsoft sign-in required for "${this.config.username}"! Open ${uri} and enter code: ${code} (Valid for ${Math.round(expiresInSec / 60)} minutes)`
         );
         console.log(`[AUTH ${this.name}] Microsoft Device Code: ${code} | URL: ${uri}`);
         this.broadcastState();
 
-        // 15-Minuten Timeout setzen, damit nicht vorzeitig abgebrochen wird
+        // 15-minute timeout for user confirmation
         this.connectionWatchdog = setTimeout(() => {
           if (this.status === 'connecting' && this.msaCodeInfo) {
-            this.addLog('error', `⏱️ Microsoft-Login Code für "${this.config.username}" ist abgelaufen. Bitte erneut auf "Jetzt Verbinden" klicken.`);
+            this.addLog('error', `⏱️ Microsoft sign-in code for "${this.config.username}" expired. Please click "Connect Now" again.`);
             this.msaCodeInfo = null;
             this.stop();
           }
@@ -467,12 +466,12 @@ class BotInstance {
     try {
       this.bot = mineflayer.createBot(botOptions);
     } catch (err) {
-      this.addLog('error', `Fehler beim Erstellen der Bot-Instanz: ${err.message}`);
+      this.addLog('error', `Failed to create bot instance: ${err.message}`);
       this.scheduleReconnect();
       return;
     }
 
-    // 2-Stufiger Ressourcenpaket-Handshake
+    // 2-Stage Resource Pack Handshake
     if (this.bot._client) {
       const handleResourcePack = (data, clientRef) => {
         const packUuid = data && data.uuid ? data.uuid : '00000000-0000-0000-0000-000000000000';
@@ -489,9 +488,9 @@ class BotInstance {
       this.bot._client.on('resource_pack_send', data => handleResourcePack(data, this.bot._client));
       this.bot._client.on('add_resource_pack', data => handleResourcePack(data, this.bot._client));
 
-      // Velocity Unterserver-Transfer: State-Transition abfangen
+      // Velocity Subserver Transfer: Configuration phase transition
       this.bot._client.on('start_configuration', () => {
-        this.addLog('system', `Wechsle Unterserver / Konfigurations-Phase...`);
+        this.addLog('system', `Switching subserver / configuration phase...`);
         this.stopTickEndLoop();
       });
 
@@ -505,7 +504,7 @@ class BotInstance {
     }
 
     this.bot.once('login', () => {
-      this.addLog('system', `Minecraft-Login akzeptiert (Protokoll: ${this.bot.version || 'Auto'})! Warte auf Welt-Download...`);
+      this.addLog('system', `Minecraft login accepted (Protocol: ${this.bot.version || 'Auto'})! Waiting for terrain download...`);
     });
 
     let hasExecutedJoinCommands = false;
@@ -525,7 +524,7 @@ class BotInstance {
       this.status = 'online';
       this.startPeriodicReconnect();
       this.broadcastState();
-      this.addLog('success', `Spieler in Welt gespawnt (${this.config.host})!`);
+      this.addLog('success', `Player spawned in world (${this.config.host})!`);
 
       const joinCmds = Array.isArray(this.config.onJoinCommands) ? this.config.onJoinCommands : [];
       const delay = (this.config.onJoinDelaySec || 3) * 1000;
@@ -535,7 +534,7 @@ class BotInstance {
         setTimeout(() => {
           if (this.bot && this.status === 'online') {
             joinCmds.forEach(cmd => {
-              this.addLog('system', `Führe On-Join-Befehl aus: ${cmd}`);
+              this.addLog('system', `Executing on-join command: ${cmd}`);
               this.chat(cmd);
             });
           }
@@ -543,7 +542,7 @@ class BotInstance {
       }
     });
 
-    // Chat-Nachrichten deduplizieren
+    // Deduplicate incoming chat messages
     this.bot.on('message', jsonMsg => {
       const plainText = parseMinecraftChat(jsonMsg);
       if (!plainText) return;
@@ -559,7 +558,7 @@ class BotInstance {
 
     this.bot.on('title', text => {
       const plain = parseMinecraftChat(text);
-      if (plain) this.addLog('system', `[TITEL] ${plain}`);
+      if (plain) this.addLog('system', `[TITLE] ${plain}`);
     });
 
     this.bot.on('kicked', (reason, loggedIn) => {
@@ -572,8 +571,8 @@ class BotInstance {
       }
       this.msaCodeInfo = null;
       const plainReason = parseMinecraftChat(reason);
-      this.addLog('warn', `Vom Server gekickt (${loggedIn ? 'im Spiel' : 'Login-Phase'}): ${plainReason || 'Kein Grund angegeben'}`);
-      console.log(`[KICK ${this.name}] Grund:`, plainReason || reason);
+      this.addLog('warn', `Kicked from server (${loggedIn ? 'in-game' : 'login phase'}): ${plainReason || 'No reason provided'}`);
+      console.log(`[KICK ${this.name}] Reason:`, plainReason || reason);
       this.scheduleReconnect();
     });
 
@@ -586,13 +585,13 @@ class BotInstance {
         this.connectionWatchdog = null;
       }
       this.msaCodeInfo = null;
-      this.addLog('warn', `Verbindung zum Server getrennt: ${reason || 'Verbindung geschlossen'}`);
-      console.log(`[END ${this.name}] Grund:`, reason);
+      this.addLog('warn', `Connection to server closed: ${reason || 'Connection terminated'}`);
+      console.log(`[END ${this.name}] Reason:`, reason);
       this.scheduleReconnect();
     });
 
     this.bot.on('error', err => {
-      this.addLog('error', `Bot-Fehler: ${err.message}`);
+      this.addLog('error', `Bot error: ${err.message}`);
     });
   }
 
@@ -621,14 +620,14 @@ class BotInstance {
     if (autoReconn) {
       this.status = 'reconnecting';
       this.broadcastState();
-      this.addLog('system', `Auto-Rejoin aktiv. Neuer Verbindungsversuch in ${delay / 1000} Sekunden...`);
+      this.addLog('system', `Auto-rejoin active. Reconnecting in ${delay / 1000} seconds...`);
       this.reconnectTimer = setTimeout(() => {
         this.start();
       }, delay);
     } else {
       this.status = 'disconnected';
       this.broadcastState();
-      this.addLog('info', 'Auto-Rejoin ist deaktiviert. Bot bleibt getrennt.');
+      this.addLog('info', 'Auto-rejoin is disabled. Bot remains disconnected.');
     }
   }
 
@@ -744,7 +743,6 @@ class BotInstance {
     if (newConfig.periodicReconnectIntervalMin !== undefined) {
       this.config.periodicReconnectIntervalMin = Math.max(1, parseInt(newConfig.periodicReconnectIntervalMin, 10) || 30);
     }
-    if (newConfig.ownerUsername) this.ownerUsername = newConfig.ownerUsername;
 
     if (this.config.periodicReconnect && this.status === 'online') {
       this.startPeriodicReconnect(true);
@@ -784,43 +782,32 @@ class BotManager {
     });
   }
 
-  getBotsForUser(user) {
-    if (!user) return [];
+  getAllBots() {
     const list = [];
     this.botInstances.forEach(b => {
-      if (user.role === 'admin' || b.ownerUsername.toLowerCase() === user.username.toLowerCase()) {
-        list.push({
-          id: b.id,
-          name: b.name,
-          ownerUsername: b.ownerUsername,
-          host: b.config.host,
-          port: b.config.port,
-          username: b.config.username,
-          status: b.status,
-        });
-      }
+      list.push({
+        id: b.id,
+        name: b.name,
+        host: b.config.host,
+        port: b.config.port,
+        username: b.config.username,
+        status: b.status,
+      });
     });
     return list;
   }
 
-  getBot(id, user) {
-    const bot = this.botInstances.get(id);
-    if (!bot) return null;
-    if (user.role === 'admin' || bot.ownerUsername.toLowerCase() === user.username.toLowerCase()) {
-      return bot;
-    }
-    return null;
+  getBot(id) {
+    return this.botInstances.get(id) || null;
   }
 
-  createBot(data, creatorUser) {
+  createBot(data) {
     const id = 'bot_' + crypto.randomBytes(4).toString('hex');
-    const owner = creatorUser.role === 'admin' && data.ownerUsername ? data.ownerUsername : creatorUser.username;
 
     const newCfg = {
       ...DEFAULT_BOT_SETTINGS,
       ...data,
       id,
-      ownerUsername: owner,
       createdAt: new Date().toISOString(),
     };
 
@@ -838,8 +825,8 @@ class BotManager {
     return instance;
   }
 
-  deleteBot(id, user) {
-    const bot = this.getBot(id, user);
+  deleteBot(id) {
+    const bot = this.getBot(id);
     if (!bot) return false;
 
     bot.stop();
@@ -862,7 +849,6 @@ class BotManager {
       all.push({
         id: b.id,
         name: b.name,
-        ownerUsername: b.ownerUsername,
         host: b.config.host,
         port: b.config.port,
         username: b.config.username,
@@ -891,7 +877,15 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  etag: false,
+  maxAge: 0,
+  setHeaders: (res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+  }
+}));
 
 // Auth Middleware für REST
 function authMiddleware(req, res, next) {
@@ -917,13 +911,6 @@ function authMiddleware(req, res, next) {
   next();
 }
 
-function adminOnly(req, res, next) {
-  if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Zugriff verweigert: Administrator-Rechte erforderlich' });
-  }
-  next();
-}
-
 // -------------------------------------------------------------
 // 6. REST API Endpunkte
 // -------------------------------------------------------------
@@ -935,184 +922,70 @@ app.post('/api/auth/login', (req, res) => {
     return res.status(400).json({ error: 'Benutzername und Passwort sind erforderlich' });
   }
 
-  const user = getUserByUsername(username);
-  if (!user || !verifyPassword(password, user.salt, user.hash)) {
+  if (
+    username.toLowerCase() !== adminAccount.username.toLowerCase() ||
+    !verifyPassword(password, adminAccount.salt, adminAccount.hash)
+  ) {
     return res.status(401).json({ error: 'Ungültige Anmeldedaten' });
   }
 
   const token = createToken({
-    id: user.id,
-    username: user.username,
-    role: user.role,
+    username: adminAccount.username,
   });
 
   res.json({
     success: true,
     token,
     user: {
-      id: user.id,
-      username: user.username,
-      role: user.role,
+      username: adminAccount.username,
     },
   });
 });
 
-// Eigene Benutzerdaten & zugehörige Bots abrufen
+// Admin-Benutzerdaten & alle Bots abrufen
 app.get('/api/auth/me', authMiddleware, (req, res) => {
-  const user = getUserByUsername(req.user.username);
-  if (!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
-
-  const bots = botManager.getBotsForUser(req.user);
   res.json({
     user: {
-      id: user.id,
-      username: user.username,
-      role: user.role,
+      username: adminAccount.username,
     },
-    bots,
+    bots: botManager.getAllBots(),
   });
 });
 
-// Eigenes Passwort ändern
+// Admin-Passwort ändern
 app.post('/api/auth/change-password', authMiddleware, (req, res) => {
   const { currentPassword, newPassword } = req.body;
   if (!newPassword || newPassword.length < 4) {
     return res.status(400).json({ error: 'Das neue Passwort muss mindestens 4 Zeichen lang sein' });
   }
 
-  const user = getUserByUsername(req.user.username);
-  if (!user || !verifyPassword(currentPassword, user.salt, user.hash)) {
+  if (!verifyPassword(currentPassword, adminAccount.salt, adminAccount.hash)) {
     return res.status(400).json({ error: 'Das aktuelle Passwort ist nicht korrekt' });
   }
 
   const { salt, hash } = hashPassword(newPassword);
-  user.salt = salt;
-  user.hash = hash;
-  saveUsers(usersList);
+  adminAccount.salt = salt;
+  adminAccount.hash = hash;
+  adminAccount.updatedAt = new Date().toISOString();
+  saveAdmin(adminAccount);
 
+  console.log(`[AUTH] Admin-Passwort für "${adminAccount.username}" erfolgreich geändert.`);
   res.json({ success: true, message: 'Passwort erfolgreich geändert' });
-});
-
-// --- ADMIN ENDPUNKTE ---
-
-// Alle Benutzer auflisten
-app.get('/api/admin/users', authMiddleware, adminOnly, (req, res) => {
-  const list = usersList.map(u => {
-    // Zählen, wie viele Bots diesem Nutzer gehören
-    let botCount = 0;
-    botManager.botInstances.forEach(b => {
-      if (b.ownerUsername.toLowerCase() === u.username.toLowerCase()) botCount++;
-    });
-    return {
-      id: u.id,
-      username: u.username,
-      role: u.role,
-      createdAt: u.createdAt,
-      botCount,
-    };
-  });
-  res.json({ success: true, users: list });
-});
-
-// Neuen Benutzer anlegen
-app.post('/api/admin/users', authMiddleware, adminOnly, (req, res) => {
-  const { username, password, role } = req.body;
-  const cleanName = (username || '').trim();
-
-  if (!cleanName || cleanName.length < 3) {
-    return res.status(400).json({ error: 'Benutzername muss mindestens 3 Zeichen lang sein' });
-  }
-  if (!password || password.length < 4) {
-    return res.status(400).json({ error: 'Passwort muss mindestens 4 Zeichen lang sein' });
-  }
-
-  if (getUserByUsername(cleanName)) {
-    return res.status(400).json({ error: 'Ein Benutzer mit diesem Namen existiert bereits' });
-  }
-
-  const { salt, hash } = hashPassword(password);
-  const newUser = {
-    id: 'u_' + crypto.randomBytes(4).toString('hex'),
-    username: cleanName,
-    salt,
-    hash,
-    role: role === 'admin' ? 'admin' : 'user',
-    createdAt: new Date().toISOString(),
-  };
-
-  usersList.push(newUser);
-  saveUsers(usersList);
-
-  res.json({
-    success: true,
-    user: {
-      id: newUser.id,
-      username: newUser.username,
-      role: newUser.role,
-      createdAt: newUser.createdAt,
-    },
-  });
-});
-
-// Benutzer löschen
-app.delete('/api/admin/users/:username', authMiddleware, adminOnly, (req, res) => {
-  const targetName = req.params.username;
-  if (targetName.toLowerCase() === req.user.username.toLowerCase()) {
-    return res.status(400).json({ error: 'Du kannst deinen eigenen Admin-Account nicht löschen' });
-  }
-
-  const idx = usersList.findIndex(u => u.username.toLowerCase() === targetName.toLowerCase());
-  if (idx === -1) {
-    return res.status(404).json({ error: 'Benutzer nicht gefunden' });
-  }
-
-  usersList.splice(idx, 1);
-  saveUsers(usersList);
-
-  res.json({ success: true, message: `Benutzer "${targetName}" wurde gelöscht` });
-});
-
-// Admin setzt Passwort für Benutzer zurück
-app.post('/api/admin/users/:username/password', authMiddleware, adminOnly, (req, res) => {
-  const targetName = req.params.username;
-  const { newPassword } = req.body;
-
-  if (!newPassword || newPassword.length < 4) {
-    return res.status(400).json({ error: 'Das Passwort muss mindestens 4 Zeichen lang sein' });
-  }
-
-  const user = getUserByUsername(targetName);
-  if (!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
-
-  const { salt, hash } = hashPassword(newPassword);
-  user.salt = salt;
-  user.hash = hash;
-  saveUsers(usersList);
-
-  res.json({ success: true, message: `Passwort für "${targetName}" erfolgreich aktualisiert` });
 });
 
 // --- BOT PROFIL ENDPUNKTE ---
 
-// Alle für den Benutzer sichtbaren Bots auflisten
+// Alle Bots auflisten
 app.get('/api/bots', authMiddleware, (req, res) => {
-  res.json({ success: true, bots: botManager.getBotsForUser(req.user) });
+  res.json({ success: true, bots: botManager.getAllBots() });
 });
 
 // Neues Bot-Profil anlegen
 app.post('/api/bots', authMiddleware, (req, res) => {
-  const { name, ownerUsername, host, port, username, version, onJoinCommands } = req.body;
+  const { name, host, port, username, version, onJoinCommands } = req.body;
 
   if (!host || !username) {
     return res.status(400).json({ error: 'Server-Host und Minecraft-Name sind Pflichtfelder' });
-  }
-
-  let finalOwner = req.user.username;
-  if (req.user.role === 'admin' && ownerUsername) {
-    if (!getUserByUsername(ownerUsername)) {
-      return res.status(400).json({ error: `Zugewiesener Benutzer "${ownerUsername}" existiert nicht` });
-    }
-    finalOwner = ownerUsername;
   }
 
   const commandsArray = Array.isArray(onJoinCommands)
@@ -1122,39 +995,35 @@ app.post('/api/bots', authMiddleware, (req, res) => {
         .split(',')
         .map(s => s.trim())
         .filter(Boolean)
-    : ['/server cb1'];
+    : [];
 
-  const botInstance = botManager.createBot(
-    {
-      name: name || `Bot (${username})`,
-      ownerUsername: finalOwner,
-      host: host.trim(),
-      port: parseInt(port, 10) || 25565,
-      username: username.trim(),
-      version: version ? version.trim() : '',
-      onJoinCommands: commandsArray,
-      autoReconnect: req.body.autoReconnect !== false,
-      periodicReconnect: req.body.periodicReconnect !== false,
-      periodicReconnectIntervalMin: parseInt(req.body.periodicReconnectIntervalMin, 10) || 30,
-    },
-    req.user
-  );
+  const botInstance = botManager.createBot({
+    name: name || `Bot (${username})`,
+    host: host.trim(),
+    port: parseInt(port, 10) || 25565,
+    username: username.trim(),
+    version: version ? version.trim() : '',
+    onJoinCommands: commandsArray,
+    autoReconnect: req.body.autoReconnect !== false,
+    periodicReconnect: req.body.periodicReconnect !== false,
+    periodicReconnectIntervalMin: parseInt(req.body.periodicReconnectIntervalMin, 10) || 30,
+  });
 
   res.json({ success: true, bot: botInstance.getState() });
 });
 
 // Einzelnes Bot-Profil löschen
 app.delete('/api/bots/:id', authMiddleware, (req, res) => {
-  const success = botManager.deleteBot(req.params.id, req.user);
+  const success = botManager.deleteBot(req.params.id);
   if (!success) {
-    return res.status(404).json({ error: 'Bot-Profil nicht gefunden oder keine Berechtigung' });
+    return res.status(404).json({ error: 'Bot-Profil nicht gefunden' });
   }
   res.json({ success: true, message: 'Bot-Profil erfolgreich gelöscht' });
 });
 
 // Einstellungen eines Bots aktualisieren
 app.post('/api/bots/:id/config', authMiddleware, (req, res) => {
-  const bot = botManager.getBot(req.params.id, req.user);
+  const bot = botManager.getBot(req.params.id);
   if (!bot) return res.status(404).json({ error: 'Bot nicht gefunden' });
 
   let joinCommands = bot.config.onJoinCommands;
@@ -1178,16 +1047,15 @@ app.post('/api/bots/:id/config', authMiddleware, (req, res) => {
     antiAfk: req.body.antiAfk !== undefined ? req.body.antiAfk : undefined,
     periodicReconnect: req.body.periodicReconnect,
     periodicReconnectIntervalMin: req.body.periodicReconnectIntervalMin,
-    ownerUsername: req.user.role === 'admin' && req.body.ownerUsername ? req.body.ownerUsername : undefined,
   });
 
   botManager.persistAll();
   res.json({ success: true, bot: bot.getState() });
 });
 
-// Aktionen auf einem Bot ausführen (connect, disconnect, jump, sneak, command, etc.)
+// Aktionen auf einem Bot ausführen
 app.post('/api/bots/:id/action/:action', authMiddleware, (req, res) => {
-  const bot = botManager.getBot(req.params.id, req.user);
+  const bot = botManager.getBot(req.params.id);
   if (!bot) return res.status(404).json({ error: 'Bot nicht gefunden' });
 
   const { action } = req.params;
@@ -1222,13 +1090,13 @@ app.post('/api/bots/:id/action/:action', authMiddleware, (req, res) => {
           fs.rmSync(bot.profileAuthFolder, { recursive: true, force: true });
           fs.mkdirSync(bot.profileAuthFolder, { recursive: true });
         }
-        bot.addLog('system', '🧹 Microsoft Auth-Cache erfolgreich geleert. Beim nächsten Verbinden wird ein neuer Code angefordert.');
+        bot.addLog('system', '🧹 Microsoft auth cache cleared successfully. A new sign-in code will be requested on the next connection.');
       } catch (e) {
-        bot.addLog('error', `Fehler beim Leeren des Auth-Caches: ${e.message}`);
+        bot.addLog('error', `Failed to clear auth cache: ${e.message}`);
       }
       break;
     default:
-      return res.status(400).json({ error: `Unbekannte Aktion: ${action}` });
+      return res.status(400).json({ error: `Unknown action: ${action}` });
   }
 
   res.json({ success: true });
@@ -1237,18 +1105,11 @@ app.post('/api/bots/:id/action/:action', authMiddleware, (req, res) => {
 // -------------------------------------------------------------
 // 7. WebSocket Live-Synchronisation
 // -------------------------------------------------------------
-function broadcastToAuthorizedClients(action, botId, data) {
-  const bot = botManager.botInstances.get(botId);
-  if (!bot) return;
-
+function broadcastToClients(action, botId, data) {
   const msgStr = JSON.stringify({ action, botId, data });
 
   wss.clients.forEach(client => {
     if (client.readyState === WebSocket.OPEN && client.user) {
-      const isAllowed = client.user.role === 'admin' || bot.ownerUsername.toLowerCase() === client.user.username.toLowerCase();
-      if (!isAllowed) return;
-
-      // Logs nur an Clients senden, die diesen Bot gerade aktiv im Dashboard geöffnet haben
       if (action === 'log') {
         if (client.activeBotId === botId) {
           client.send(msgStr);
@@ -1261,7 +1122,6 @@ function broadcastToAuthorizedClients(action, botId, data) {
 }
 
 wss.on('connection', (ws, req) => {
-  // Token aus URL query parsen (?token=...)
   const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const token = urlObj.searchParams.get('token');
   const user = verifyToken(token);
@@ -1273,7 +1133,7 @@ wss.on('connection', (ws, req) => {
   }
 
   ws.user = user;
-  const availableBots = botManager.getBotsForUser(user);
+  const availableBots = botManager.getAllBots();
   const firstBotId = availableBots.length > 0 ? availableBots[0].id : null;
   ws.activeBotId = firstBotId;
 
@@ -1284,9 +1144,7 @@ wss.on('connection', (ws, req) => {
     JSON.stringify({
       action: 'init',
       user: {
-        id: user.id,
-        username: user.username,
-        role: user.role,
+        username: adminAccount.username,
       },
       bots: availableBots,
       activeBotId: firstBotId,
@@ -1303,10 +1161,10 @@ wss.on('connection', (ws, req) => {
     try {
       const msg = JSON.parse(rawMsg);
       const targetBotId = msg.botId || ws.activeBotId;
-      const targetBot = targetBotId ? botManager.getBot(targetBotId, ws.user) : null;
+      const targetBot = targetBotId ? botManager.getBot(targetBotId) : null;
 
       if (msg.action === 'select_bot') {
-        const reqBot = botManager.getBot(msg.botId, ws.user);
+        const reqBot = botManager.getBot(msg.botId);
         if (reqBot) {
           ws.activeBotId = reqBot.id;
           ws.send(
@@ -1332,10 +1190,6 @@ wss.on('connection', (ws, req) => {
         targetBot.stop();
       } else if (msg.action === 'command' && targetBot && msg.command) {
         targetBot.chat(msg.command);
-      } else if (msg.action === 'jump' && targetBot) {
-        targetBot.jump();
-      } else if (msg.action === 'sneak' && targetBot) {
-        targetBot.sneak(msg.value);
       }
     } catch (e) {
       console.error('Fehler bei WS-Nachricht:', e.message);
@@ -1348,12 +1202,12 @@ wss.on('connection', (ws, req) => {
 // -------------------------------------------------------------
 server.listen(PORT, () => {
   console.log(`====================================================`);
-  console.log(` Minecraft Multi-User Manager läuft auf Port ${PORT}`);
+  console.log(` Minecraft Client Manager läuft auf Port ${PORT}`);
   console.log(` Web-Zugriff: http://localhost:${PORT}`);
   console.log(`====================================================`);
 
   // Bots laden und starten
   botManager.init((action, botId, data) => {
-    broadcastToAuthorizedClients(action, botId, data);
+    broadcastToClients(action, botId, data);
   });
 });

@@ -1,13 +1,11 @@
 {
-  "host": "primeblocks.net",
+  "host": "",
   "port": 25565,
-  "username": "MelonengolemGHG",
+  "username": "",
   "version": "",
-  "autoReconnect": true,
+  "autoReconnect": false,
   "reconnectDelaySec": 10,
-  "onJoinCommands": [
-    "/server cb1"
-  ],
+  "onJoinCommands": [],
   "onJoinDelaySec": 3,
   "enablePhysics": true,
   "periodicReconnect": true,

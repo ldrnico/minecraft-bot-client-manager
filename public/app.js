@@ -1,4 +1,4 @@
-// Globaler Anwendungs-Status
+// Global Application State
 let authToken = localStorage.getItem('mc_token') || null;
 let currentUser = null;
 let availableBots = [];
@@ -6,10 +6,9 @@ let activeBotId = null;
 let activeBotData = null;
 let nextPeriodicReconnectTimestamp = null;
 let currentBotStatus = 'disconnected';
-let isSneaking = false;
 let ws = null;
 
-// DOM Elemente: Login & Views
+// DOM Elements: Login & Views
 const loginView = document.getElementById('loginView');
 const mainAppView = document.getElementById('mainAppView');
 const loginForm = document.getElementById('loginForm');
@@ -18,22 +17,20 @@ const loginPassword = document.getElementById('loginPassword');
 const loginError = document.getElementById('loginError');
 const btnLogout = document.getElementById('btnLogout');
 
-// DOM Elemente: Header & Profilauswahl
+// DOM Elements: Header & Profile Switcher
 const botSelect = document.getElementById('botSelect');
 const btnOpenCreateBotModal = document.getElementById('btnOpenCreateBotModal');
 const userBadgeName = document.getElementById('userBadgeName');
-const userBadgeRole = document.getElementById('userBadgeRole');
 const statusBadge = document.getElementById('statusBadge');
 const statusText = document.getElementById('statusText');
 
-// DOM Elemente: Info-Bar
+// DOM Elements: Info Bar
 const infoProfileName = document.getElementById('infoProfileName');
 const targetServer = document.getElementById('targetServer');
 const botName = document.getElementById('botName');
-const infoOwnerName = document.getElementById('infoOwnerName');
 const mcVersion = document.getElementById('mcVersion');
 
-// DOM Elemente: Dashboard Controls
+// DOM Elements: Dashboard Controls
 const autoRejoinToggle = document.getElementById('autoRejoinToggle');
 const rejoinStatusAlert = document.getElementById('rejoinStatusAlert');
 const rejoinStateLabel = document.getElementById('rejoinStateLabel');
@@ -41,8 +38,10 @@ const periodicReconnectToggle = document.getElementById('periodicReconnectToggle
 const periodicStatusAlert = document.getElementById('periodicStatusAlert');
 const periodicStateLabel = document.getElementById('periodicStateLabel');
 const periodicCountdown = document.getElementById('periodicCountdown');
+const periodicIntervalDisplay = document.getElementById('periodicIntervalDisplay');
+const periodicIntervalDescDisplay = document.getElementById('periodicIntervalDescDisplay');
 
-// DOM Elemente: Microsoft Device Code Alert
+// DOM Elements: Microsoft Device Code Alert
 const msaAlertBox = document.getElementById('msaAlertBox');
 const msaAlertCode = document.getElementById('msaAlertCode');
 const msaAlertLink = document.getElementById('msaAlertLink');
@@ -50,21 +49,17 @@ const btnCopyMsaCode = document.getElementById('btnCopyMsaCode');
 
 const btnConnect = document.getElementById('btnConnect');
 const btnDisconnect = document.getElementById('btnDisconnect');
-const btnJump = document.getElementById('btnJump');
-const btnSneak = document.getElementById('btnSneak');
 const btnClearLogs = document.getElementById('btnClearLogs');
 const terminal = document.getElementById('terminal');
 const termBotName = document.getElementById('termBotName');
 const commandForm = document.getElementById('commandForm');
 const commandInput = document.getElementById('commandInput');
 
-// DOM Elemente: Einstellungen (Tab 2)
+// DOM Elements: Settings Form
 const settingsProfileLabel = document.getElementById('settingsProfileLabel');
-const configFeedback = document.getElementById('configFeedback');
 const configForm = document.getElementById('configForm');
+const configFeedback = document.getElementById('configFeedback');
 const cfgProfileName = document.getElementById('cfgProfileName');
-const cfgOwnerGroup = document.getElementById('cfgOwnerGroup');
-const cfgOwnerUsername = document.getElementById('cfgOwnerUsername');
 const cfgHost = document.getElementById('cfgHost');
 const cfgPort = document.getElementById('cfgPort');
 const cfgUsername = document.getElementById('cfgUsername');
@@ -78,42 +73,21 @@ const cfgAntiAfk = document.getElementById('cfgAntiAfk');
 const btnClearAuthCache = document.getElementById('btnClearAuthCache');
 const btnDeleteCurrentBot = document.getElementById('btnDeleteCurrentBot');
 
-// DOM Elemente: Admin Panel (Tab 3)
-const tabBtnAdmin = document.getElementById('tabBtnAdmin');
-const adminUserFeedback = document.getElementById('adminUserFeedback');
-const usersTableBody = document.getElementById('usersTableBody');
-const adminBotsTableBody = document.getElementById('adminBotsTableBody');
-const btnOpenCreateUserModal = document.getElementById('btnOpenCreateUserModal');
+// DOM Elements: Modal Create Bot
+const modalCreateBot = document.getElementById('modalCreateBot');
+const btnCloseCreateBotModal = document.getElementById('btnCloseCreateBotModal');
+const btnCancelCreateBot = document.getElementById('btnCancelCreateBot');
+const formCreateBot = document.getElementById('formCreateBot');
 
-// DOM Elemente: Mein Account (Tab 4)
+// DOM Elements: Change Password Form
 const changePasswordForm = document.getElementById('changePasswordForm');
 const accCurrentPass = document.getElementById('accCurrentPass');
 const accNewPass = document.getElementById('accNewPass');
 const accNewPassConfirm = document.getElementById('accNewPassConfirm');
 const accountFeedback = document.getElementById('accountFeedback');
 
-// DOM Elemente: Modals
-const modalCreateBot = document.getElementById('modalCreateBot');
-const btnCloseCreateBotModal = document.getElementById('btnCloseCreateBotModal');
-const btnCancelCreateBot = document.getElementById('btnCancelCreateBot');
-const formCreateBot = document.getElementById('formCreateBot');
-const newBotOwnerGroup = document.getElementById('newBotOwnerGroup');
-const newBotOwner = document.getElementById('newBotOwner');
-
-const modalCreateUser = document.getElementById('modalCreateUser');
-const btnCloseCreateUserModal = document.getElementById('btnCloseCreateUserModal');
-const btnCancelCreateUser = document.getElementById('btnCancelCreateUser');
-const formCreateUser = document.getElementById('formCreateUser');
-
-const modalResetPassword = document.getElementById('modalResetPassword');
-const resetTargetUsername = document.getElementById('resetTargetUsername');
-const resetTargetUserHidden = document.getElementById('resetTargetUserHidden');
-const btnCloseResetModal = document.getElementById('btnCloseResetModal');
-const btnCancelResetModal = document.getElementById('btnCancelResetModal');
-const formResetPassword = document.getElementById('formResetPassword');
-
 // -------------------------------------------------------------
-// 1. Initialisierung & Authentifizierung
+// 1. Initial Authentication & Verification
 // -------------------------------------------------------------
 async function initApp() {
   if (!authToken) {
@@ -126,19 +100,21 @@ async function initApp() {
       headers: { Authorization: `Bearer ${authToken}` },
     });
 
-    if (res.status === 401 || res.status === 403) {
+    if (res.ok) {
+      const data = await res.json();
+      currentUser = data.user;
+      availableBots = data.bots || [];
+      activeBotId = availableBots.length > 0 ? availableBots[0].id : null;
+      setupUIForUser();
+      if (availableBots.length === 0) {
+        resetEmptyBotUI();
+      }
+      initWebSocket();
+    } else {
       logout();
-      return;
     }
-
-    const data = await res.json();
-    currentUser = data.user;
-    availableBots = data.bots || [];
-
-    setupUIForUser();
-    initWebSocket();
   } catch (err) {
-    console.error('Fehler beim Prüfen der Sitzung:', err);
+    console.error('Session verification error:', err);
     showLoginView();
   }
 }
@@ -146,17 +122,11 @@ async function initApp() {
 function showLoginView() {
   loginView.style.display = 'flex';
   mainAppView.style.display = 'none';
-  if (ws) {
-    try {
-      ws.close();
-    } catch (e) {}
-    ws = null;
-  }
 }
 
 function showMainView() {
   loginView.style.display = 'none';
-  mainAppView.style.display = 'flex';
+  mainAppView.style.display = 'block';
 }
 
 function logout() {
@@ -167,16 +137,12 @@ function logout() {
     try {
       ws.close();
     } catch (e) {}
-    ws = null;
   }
   showLoginView();
 }
 
-btnLogout.addEventListener('click', () => {
-  logout();
-});
+btnLogout.addEventListener('click', logout);
 
-// Login Formular Absenden
 loginForm.addEventListener('submit', async e => {
   e.preventDefault();
   loginError.style.display = 'none';
@@ -202,38 +168,23 @@ loginForm.addEventListener('submit', async e => {
     } else {
       loginError.style.display = 'block';
       loginError.className = 'alert-box inactive';
-      loginError.textContent = data.error || 'Ungültige Anmeldedaten';
+      loginError.textContent = data.error || 'Invalid username or password';
     }
   } catch (err) {
     loginError.style.display = 'block';
     loginError.className = 'alert-box inactive';
-    loginError.textContent = 'Netzwerkfehler: ' + err.message;
+    loginError.textContent = 'Network error: ' + err.message;
   }
 });
 
 function setupUIForUser() {
   showMainView();
   userBadgeName.textContent = currentUser.username;
-  userBadgeRole.textContent = currentUser.role === 'admin' ? 'Admin' : 'Benutzer';
-  userBadgeRole.className = currentUser.role === 'admin' ? 'role-tag' : 'role-tag user';
-
-  // Admin-Tab & Admin-Felder
-  if (currentUser.role === 'admin') {
-    tabBtnAdmin.style.display = 'inline-block';
-    cfgOwnerGroup.style.display = 'block';
-    newBotOwnerGroup.style.display = 'block';
-    loadAdminUsers();
-  } else {
-    tabBtnAdmin.style.display = 'none';
-    cfgOwnerGroup.style.display = 'none';
-    newBotOwnerGroup.style.display = 'none';
-  }
-
   updateBotDropdown();
 }
 
 // -------------------------------------------------------------
-// 2. WebSocket Verbindungsmanagement
+// 2. WebSocket Connection Management
 // -------------------------------------------------------------
 function initWebSocket() {
   if (ws) {
@@ -248,7 +199,7 @@ function initWebSocket() {
   ws = new WebSocket(wsUrl);
 
   ws.onopen = () => {
-    console.log('[WS] WebSocket verbunden.');
+    console.log('[WS] WebSocket connected.');
   };
 
   ws.onmessage = event => {
@@ -266,19 +217,19 @@ function initWebSocket() {
         logout();
       }
     } catch (err) {
-      console.error('[WS] Fehler beim Parsen:', err);
+      console.error('[WS] Error parsing message:', err);
     }
   };
 
   ws.onclose = () => {
     if (authToken) {
-      console.warn('[WS] Verbindung verloren. Wiederverbindung in 3s...');
+      console.warn('[WS] Connection closed. Reconnecting in 3s...');
       setTimeout(initWebSocket, 3000);
     }
   };
 
   ws.onerror = err => {
-    console.error('[WS] Fehler:', err);
+    console.error('[WS] Error:', err);
   };
 }
 
@@ -290,6 +241,8 @@ function handleWsInit(msg) {
 
   if (msg.botData) {
     applyBotData(msg.botData);
+  } else {
+    resetEmptyBotUI();
   }
 }
 
@@ -300,7 +253,6 @@ function handleBotSelected(msg) {
 }
 
 function handleStateUpdate(msg) {
-  // Update in Bot-Liste vermerken
   const botInList = availableBots.find(b => b.id === msg.botId);
   if (botInList && msg.data) {
     botInList.status = msg.data.botStatus;
@@ -308,14 +260,8 @@ function handleStateUpdate(msg) {
     updateBotDropdown();
   }
 
-  // Wenn der aktuell geöffnete Bot aktualisiert wird
   if (msg.botId === activeBotId && msg.data) {
     applyBotData(msg.data, false);
-  }
-
-  // Wenn Admin-Panel offen ist, dortige Tabelle aktualisieren
-  if (currentUser && currentUser.role === 'admin') {
-    renderAdminBotsTable();
   }
 }
 
@@ -325,8 +271,42 @@ function handleLogEntry(msg) {
   }
 }
 
+function resetEmptyBotUI() {
+  activeBotData = null;
+  currentBotStatus = 'disconnected';
+  infoProfileName.textContent = '-';
+  targetServer.textContent = '-';
+  botName.textContent = '-';
+  mcVersion.textContent = '-';
+  settingsProfileLabel.textContent = 'No Profile Selected';
+  termBotName.textContent = 'None';
+  statusBadge.className = 'status-badge disconnected';
+  statusText.textContent = 'No Bot';
+  btnConnect.disabled = true;
+  btnDisconnect.disabled = true;
+  autoRejoinToggle.checked = false;
+  rejoinStatusAlert.className = 'alert-box inactive';
+  rejoinStateLabel.textContent = 'PAUSED / DISABLED';
+  periodicReconnectToggle.checked = false;
+  periodicStatusAlert.className = 'alert-box inactive';
+  periodicStateLabel.textContent = 'PAUSED / DISABLED';
+  if (periodicCountdown) periodicCountdown.textContent = 'No bot profile';
+  msaAlertBox.style.display = 'none';
+  terminal.innerHTML = '<div class="log-entry log-system">[SYSTEM] No bot profiles exist yet. Click "+ New" in the header to create your first Minecraft bot.</div>';
+
+  if (cfgProfileName) cfgProfileName.value = '';
+  if (cfgHost) cfgHost.value = '';
+  if (cfgPort) cfgPort.value = 25565;
+  if (cfgUsername) cfgUsername.value = '';
+  if (cfgVersion) cfgVersion.value = '';
+  if (cfgReconnectDelaySec) cfgReconnectDelaySec.value = 10;
+  if (cfgOnJoinCommands) cfgOnJoinCommands.value = '';
+  if (cfgOnJoinDelaySec) cfgOnJoinDelaySec.value = 3;
+  if (cfgPeriodicIntervalMin) cfgPeriodicIntervalMin.value = 30;
+}
+
 // -------------------------------------------------------------
-// 3. UI-Synchronisation mit aktuellem Bot
+// 3. UI Synchronization with Selected Bot
 // -------------------------------------------------------------
 function updateBotDropdown() {
   botSelect.innerHTML = '';
@@ -334,7 +314,7 @@ function updateBotDropdown() {
   if (availableBots.length === 0) {
     const opt = document.createElement('option');
     opt.value = '';
-    opt.textContent = 'Keine Bot-Profile vorhanden';
+    opt.textContent = 'No profiles (Click + New)';
     botSelect.appendChild(opt);
     return;
   }
@@ -354,7 +334,7 @@ botSelect.addEventListener('change', () => {
   if (!selectedId || selectedId === activeBotId) return;
 
   activeBotId = selectedId;
-  terminal.innerHTML = '<div class="log-entry system">[SYSTEM] Lade Logs für ausgewähltes Profil...</div>';
+  terminal.innerHTML = '<div class="log-entry log-system">[SYSTEM] Loading console logs for selected profile...</div>';
 
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ action: 'select_bot', botId: activeBotId }));
@@ -369,34 +349,33 @@ function applyBotData(data, replaceLogs = true) {
   infoProfileName.textContent = data.name || '...';
   termBotName.textContent = data.name || 'Bot';
   settingsProfileLabel.textContent = data.name || '...';
-  infoOwnerName.textContent = data.ownerUsername || '...';
 
   if (data.mcConfig) {
     targetServer.textContent = `${data.mcConfig.host}:${data.mcConfig.port}`;
     botName.textContent = data.mcConfig.username;
-    mcVersion.textContent = data.mcConfig.version || 'Automatisch';
+    mcVersion.textContent = data.mcConfig.version || 'Automatic';
   }
 
   // Status Badge
   statusBadge.className = 'status-badge ' + currentBotStatus;
   switch (currentBotStatus) {
     case 'online':
-      statusText.textContent = 'Verbunden';
+      statusText.textContent = 'Connected';
       btnConnect.disabled = true;
       btnDisconnect.disabled = false;
       break;
     case 'connecting':
-      statusText.textContent = 'Verbinde...';
+      statusText.textContent = 'Connecting...';
       btnConnect.disabled = true;
       btnDisconnect.disabled = false;
       break;
     case 'reconnecting':
-      statusText.textContent = 'Rejoin aktiv...';
+      statusText.textContent = 'Rejoining...';
       btnConnect.disabled = true;
       btnDisconnect.disabled = false;
       break;
     default:
-      statusText.textContent = 'Getrennt';
+      statusText.textContent = 'Disconnected';
       btnConnect.disabled = false;
       btnDisconnect.disabled = true;
       break;
@@ -406,21 +385,26 @@ function applyBotData(data, replaceLogs = true) {
   autoRejoinToggle.checked = !!data.autoReconnect;
   if (data.autoReconnect) {
     rejoinStatusAlert.className = 'alert-box active';
-    rejoinStateLabel.textContent = 'AKTIV';
+    rejoinStateLabel.textContent = 'ACTIVE';
   } else {
     rejoinStatusAlert.className = 'alert-box inactive';
-    rejoinStateLabel.textContent = 'PAUSIERT / DEAKTIVIERT';
+    rejoinStateLabel.textContent = 'PAUSED / DISABLED';
   }
 
-  // Periodischer Reconnect Toggle & Timestamp
+  // Dynamic Periodic Reconnect Interval Title & Description
+  const intervalMin = data.periodicReconnectIntervalMin || (data.fullConfig && data.fullConfig.periodicReconnectIntervalMin) || 30;
+  if (periodicIntervalDisplay) periodicIntervalDisplay.textContent = intervalMin;
+  if (periodicIntervalDescDisplay) periodicIntervalDescDisplay.textContent = intervalMin;
+
+  // Periodic Reconnect Toggle & Timestamp
   if (typeof data.periodicReconnect !== 'undefined') {
     periodicReconnectToggle.checked = !!data.periodicReconnect;
     if (data.periodicReconnect) {
       periodicStatusAlert.className = 'alert-box active';
-      periodicStateLabel.textContent = 'AKTIV';
+      periodicStateLabel.textContent = 'ACTIVE';
     } else {
       periodicStatusAlert.className = 'alert-box inactive';
-      periodicStateLabel.textContent = 'PAUSIERT / DEAKTIVIERT';
+      periodicStateLabel.textContent = 'PAUSED / DISABLED';
     }
   }
 
@@ -438,7 +422,7 @@ function applyBotData(data, replaceLogs = true) {
     msaAlertBox.style.display = 'none';
   }
 
-  // Logs befüllen (maximal 200)
+  // Populate Logs (max 200)
   if (replaceLogs) {
     terminal.innerHTML = '';
     if (data.logs && Array.isArray(data.logs)) {
@@ -448,7 +432,7 @@ function applyBotData(data, replaceLogs = true) {
     }
   }
 
-  // Formular im Einstellungs-Tab befüllen
+  // Populate Settings Tab Form
   if (data.fullConfig) {
     populateSettingsForm(data.fullConfig);
   }
@@ -467,36 +451,32 @@ function populateSettingsForm(cfg) {
   if (cfgPeriodicIntervalMin && activeEl !== cfgPeriodicIntervalMin) cfgPeriodicIntervalMin.value = cfg.periodicReconnectIntervalMin || 30;
   if (cfgEnablePhysics && activeEl !== cfgEnablePhysics) cfgEnablePhysics.checked = cfg.enablePhysics !== false;
   if (cfgAntiAfk && activeEl !== cfgAntiAfk) cfgAntiAfk.checked = cfg.antiAfk !== false;
-
-  if (cfgOwnerUsername && cfg.ownerUsername) {
-    cfgOwnerUsername.value = cfg.ownerUsername;
-  }
 }
 
 // -------------------------------------------------------------
-// 4. Live-Countdown & Terminal
+// 4. Live Countdown & Terminal
 // -------------------------------------------------------------
 function updatePeriodicCountdownDisplay() {
   if (!periodicCountdown) return;
 
   if (!periodicReconnectToggle || !periodicReconnectToggle.checked) {
-    periodicCountdown.textContent = 'Status: Deaktiviert';
+    periodicCountdown.textContent = 'Status: Disabled';
     return;
   }
 
   if (currentBotStatus !== 'online') {
-    periodicCountdown.textContent = 'Pausiert (Bot nicht online)';
+    periodicCountdown.textContent = 'Paused (Bot offline)';
     return;
   }
 
   if (!nextPeriodicReconnectTimestamp) {
-    periodicCountdown.textContent = 'Berechne nächsten Reconnect...';
+    periodicCountdown.textContent = 'Calculating next reconnect...';
     return;
   }
 
   const remainingMs = nextPeriodicReconnectTimestamp - Date.now();
   if (remainingMs <= 0) {
-    periodicCountdown.textContent = 'Reconnect wird ausgeführt...';
+    periodicCountdown.textContent = 'Reconnecting now...';
     return;
   }
 
@@ -504,7 +484,7 @@ function updatePeriodicCountdownDisplay() {
   const minutes = Math.floor(totalSec / 60);
   const seconds = totalSec % 60;
   const formatted = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  periodicCountdown.textContent = `Nächster Reconnect in: ${formatted}`;
+  periodicCountdown.textContent = `Next reconnect in: ${formatted}`;
 }
 
 setInterval(updatePeriodicCountdownDisplay, 1000);
@@ -524,7 +504,7 @@ function appendLog(entry, scroll = true) {
   div.appendChild(msgSpan);
   terminal.appendChild(div);
 
-  // Maximal 200 Chat-Nachrichten im DOM behalten (verhindert Speicherüberlastung & Endlos-Wachstum)
+  // Keep maximum 200 messages in DOM
   while (terminal.children.length > 200) {
     terminal.removeChild(terminal.firstChild);
   }
@@ -539,11 +519,11 @@ function scrollToBottom() {
 }
 
 btnClearLogs.addEventListener('click', () => {
-  terminal.innerHTML = '<div class="log-entry system">[SYSTEM] Konsole geleert.</div>';
+  terminal.innerHTML = '<div class="log-entry log-system">[SYSTEM] Console cleared.</div>';
 });
 
 // -------------------------------------------------------------
-// 5. Bot-Aktionen (Dashboard Controls)
+// 5. Dashboard Action Controls
 // -------------------------------------------------------------
 autoRejoinToggle.addEventListener('change', () => {
   if (!activeBotId) return;
@@ -564,10 +544,10 @@ periodicReconnectToggle.addEventListener('change', () => {
   const isEnabled = periodicReconnectToggle.checked;
   if (isEnabled) {
     periodicStatusAlert.className = 'alert-box active';
-    periodicStateLabel.textContent = 'AKTIV';
+    periodicStateLabel.textContent = 'ACTIVE';
   } else {
     periodicStatusAlert.className = 'alert-box inactive';
-    periodicStateLabel.textContent = 'PAUSIERT / DEAKTIVIERT';
+    periodicStateLabel.textContent = 'PAUSED / DISABLED';
   }
   updatePeriodicCountdownDisplay();
 
@@ -606,36 +586,7 @@ btnDisconnect.addEventListener('click', () => {
   }
 });
 
-btnJump.addEventListener('click', () => {
-  if (!activeBotId) return;
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ action: 'jump', botId: activeBotId }));
-  } else {
-    fetch(`/api/bots/${activeBotId}/action/jump`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${authToken}` },
-    });
-  }
-});
-
-btnSneak.addEventListener('click', () => {
-  if (!activeBotId) return;
-  isSneaking = !isSneaking;
-  btnSneak.style.borderColor = isSneaking ? 'var(--primary)' : 'var(--border)';
-  btnSneak.style.color = isSneaking ? 'var(--primary)' : 'var(--text-main)';
-
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ action: 'sneak', botId: activeBotId, value: isSneaking }));
-  } else {
-    fetch(`/api/bots/${activeBotId}/action/sneak`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-      body: JSON.stringify({ sneak: isSneaking }),
-    });
-  }
-});
-
-// Befehl oder Chat senden
+// Send Chat or Command
 commandForm.addEventListener('submit', e => {
   e.preventDefault();
   if (!activeBotId) return;
@@ -655,21 +606,8 @@ commandForm.addEventListener('submit', e => {
   commandInput.value = '';
 });
 
-// Schnellbefehle
-document.querySelectorAll('.quick-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    if (!activeBotId) return;
-    const cmd = btn.getAttribute('data-cmd');
-    if (!cmd) return;
-
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ action: 'command', botId: activeBotId, command: cmd }));
-    }
-  });
-});
-
 // -------------------------------------------------------------
-// 6. Bot-Einstellungen Formular (Tab 2)
+// 6. Bot Settings Form (Tab 2)
 // -------------------------------------------------------------
 configForm.addEventListener('submit', async e => {
   e.preventDefault();
@@ -688,7 +626,6 @@ configForm.addEventListener('submit', async e => {
     antiAfk: cfgAntiAfk ? cfgAntiAfk.checked : true,
     periodicReconnect: periodicReconnectToggle ? periodicReconnectToggle.checked : true,
     periodicReconnectIntervalMin: parseInt(cfgPeriodicIntervalMin.value, 10) || 30,
-    ownerUsername: cfgOwnerUsername && cfgOwnerUsername.value ? cfgOwnerUsername.value : undefined,
   };
 
   try {
@@ -700,8 +637,11 @@ configForm.addEventListener('submit', async e => {
 
     const data = await res.json();
     if (data.success) {
-      showConfigFeedback('✅ Bot-Einstellungen erfolgreich gespeichert!', 'success');
-      // Namen in Liste aktualisieren
+      showConfigFeedback('Bot settings saved successfully.', 'success');
+      // Update dynamic periodic reconnect numbers in UI immediately
+      if (periodicIntervalDisplay) periodicIntervalDisplay.textContent = payload.periodicReconnectIntervalMin;
+      if (periodicIntervalDescDisplay) periodicIntervalDescDisplay.textContent = payload.periodicReconnectIntervalMin;
+
       const botInList = availableBots.find(b => b.id === activeBotId);
       if (botInList) {
         botInList.name = payload.name;
@@ -709,10 +649,10 @@ configForm.addEventListener('submit', async e => {
         updateBotDropdown();
       }
     } else {
-      showConfigFeedback('❌ Fehler beim Speichern: ' + (data.error || 'Unbekannt'), 'error');
+      showConfigFeedback('Error saving settings: ' + (data.error || 'Unknown'), 'error');
     }
   } catch (err) {
-    showConfigFeedback('❌ Netzwerkfehler: ' + err.message, 'error');
+    showConfigFeedback('Network error: ' + err.message, 'error');
   }
 });
 
@@ -725,29 +665,82 @@ function showConfigFeedback(msg, type) {
   }, 5000);
 }
 
-// Microsoft Code Kopier-Button
+// Universal Clipboard Copy Helper (works on HTTP IP & HTTPS)
+function copyTextToClipboard(text) {
+  return new Promise((resolve, reject) => {
+    // 1. Modern Clipboard API (Only in Secure Context: HTTPS or localhost)
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard
+        .writeText(text)
+        .then(resolve)
+        .catch(() => {
+          fallbackCopyText(text, resolve, reject);
+        });
+      return;
+    }
+
+    // 2. Fallback for plain HTTP (IP address)
+    fallbackCopyText(text, resolve, reject);
+  });
+}
+
+function fallbackCopyText(text, resolve, reject) {
+  try {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.setAttribute('readonly', '');
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-9999px';
+    textArea.style.top = '0';
+    textArea.style.opacity = '0';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    textArea.setSelectionRange(0, 99999);
+
+    const successful = document.execCommand('copy');
+    document.body.removeChild(textArea);
+
+    if (successful) {
+      resolve();
+    } else {
+      reject(new Error('execCommand copy returned false'));
+    }
+  } catch (err) {
+    reject(err);
+  }
+}
+
+// Copy Microsoft Code Button
 if (btnCopyMsaCode) {
   btnCopyMsaCode.addEventListener('click', () => {
     const code = msaAlertCode ? msaAlertCode.textContent.trim() : '';
     if (!code || code === '----') return;
-    navigator.clipboard.writeText(code).then(() => {
-      btnCopyMsaCode.textContent = '✅ Kopiert!';
-      setTimeout(() => {
-        btnCopyMsaCode.textContent = '📋 Code kopieren';
-      }, 2500);
-    }).catch(() => {
-      // Fallback
-      prompt('Kopiere den Code:', code);
-    });
+
+    copyTextToClipboard(code)
+      .then(() => {
+        const originalText = btnCopyMsaCode.textContent;
+        btnCopyMsaCode.textContent = 'Copied!';
+        btnCopyMsaCode.style.background = 'var(--primary)';
+        btnCopyMsaCode.style.color = '#04130a';
+        setTimeout(() => {
+          btnCopyMsaCode.textContent = originalText;
+          btnCopyMsaCode.style.background = '';
+          btnCopyMsaCode.style.color = '';
+        }, 2500);
+      })
+      .catch(() => {
+        window.prompt('Copy your Microsoft code manually (Ctrl+C / Cmd+C):', code);
+      });
   });
 }
 
-// Auth-Cache für aktives Profil leeren
+// Clear Auth Cache for Active Profile
 if (btnClearAuthCache) {
   btnClearAuthCache.addEventListener('click', async () => {
     if (!activeBotId) return;
-    const name = activeBotData ? activeBotData.name : 'dieses Bot-Profil';
-    if (!confirm(`Möchtest du den Microsoft-Auth-Cache für "${name}" wirklich leeren?\n\nBeim nächsten Verbindungsversuch wird ein frischer Microsoft-Login-Code angefordert.`)) {
+    const name = activeBotData ? activeBotData.name : 'this bot profile';
+    if (!confirm(`Do you really want to clear the Microsoft auth cache for "${name}"?\n\nA new Microsoft sign-in code will be requested on the next connection attempt.`)) {
       return;
     }
 
@@ -758,23 +751,21 @@ if (btnClearAuthCache) {
       });
       const data = await res.json();
       if (data.success) {
-        alert('Auth-Cache wurde erfolgreich geleert!\n\nKlicke nun im Dashboard auf "Jetzt Verbinden", um einen neuen Code zu generieren.');
+        alert('Auth cache cleared successfully!\n\nClick "Connect Now" in the dashboard to generate a new login code.');
       } else {
-        alert('Fehler: ' + (data.error || 'Cache konnte nicht geleert werden'));
+        alert('Error: ' + (data.error || 'Failed to clear cache'));
       }
     } catch (err) {
-      alert('Netzwerkfehler: ' + err.message);
+      alert('Network error: ' + err.message);
     }
   });
 }
 
-// Bot Profil löschen
+// Delete Profile Button in Settings
 btnDeleteCurrentBot.addEventListener('click', async () => {
   if (!activeBotId) return;
-  const currentName = activeBotData ? activeBotData.name : 'dieses Bot-Profil';
-  if (!confirm(`Möchtest du das Bot-Profil "${currentName}" wirklich unwiderruflich löschen?`)) {
-    return;
-  }
+  const name = activeBotData ? activeBotData.name : 'this bot profile';
+  if (!confirm(`Permanently delete bot profile "${name}"?`)) return;
 
   try {
     const res = await fetch(`/api/bots/${activeBotId}`, {
@@ -783,160 +774,28 @@ btnDeleteCurrentBot.addEventListener('click', async () => {
     });
     const data = await res.json();
     if (data.success) {
-      alert('Bot-Profil wurde gelöscht.');
       availableBots = availableBots.filter(b => b.id !== activeBotId);
       activeBotId = availableBots.length > 0 ? availableBots[0].id : null;
       updateBotDropdown();
-      if (activeBotId && ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ action: 'select_bot', botId: activeBotId }));
+      document.querySelector('.tab-btn[data-tab="tabDashboard"]').click();
+      if (activeBotId) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ action: 'select_bot', botId: activeBotId }));
+        }
+      } else {
+        resetEmptyBotUI();
       }
     } else {
-      alert('Fehler: ' + (data.error || 'Profil konnte nicht gelöscht werden'));
+      alert('Error: ' + (data.error || 'Failed to delete profile'));
     }
   } catch (err) {
-    alert('Netzwerkfehler: ' + err.message);
+    alert('Network error: ' + err.message);
   }
 });
 
 // -------------------------------------------------------------
-// 7. Admin Panel Logik (Tab 3)
+// 7. Modal: Create Bot Profile
 // -------------------------------------------------------------
-async function loadAdminUsers() {
-  if (!currentUser || currentUser.role !== 'admin') return;
-
-  try {
-    const res = await fetch('/api/admin/users', {
-      headers: { Authorization: `Bearer ${authToken}` },
-    });
-    const data = await res.json();
-    if (data.success) {
-      renderAdminUsersTable(data.users);
-      populateOwnerDropdowns(data.users);
-    }
-  } catch (err) {
-    console.error('Fehler beim Laden der Admin-Benutzer:', err);
-  }
-}
-
-function renderAdminUsersTable(users) {
-  usersTableBody.innerHTML = '';
-  users.forEach(u => {
-    const tr = document.createElement('tr');
-
-    const isSelf = u.username.toLowerCase() === currentUser.username.toLowerCase();
-    const dateStr = u.createdAt ? new Date(u.createdAt).toLocaleDateString('de-DE') : '-';
-
-    tr.innerHTML = `
-      <td><strong>${u.username}</strong> ${isSelf ? '<small style="color:var(--primary);">(Du)</small>' : ''}</td>
-      <td><span class="role-tag ${u.role === 'admin' ? '' : 'user'}">${u.role.toUpperCase()}</span></td>
-      <td>${u.botCount} Profil(e)</td>
-      <td>${dateStr}</td>
-      <td class="table-actions">
-        <button class="btn btn-xs btn-secondary" onclick="openResetPasswordModal('${u.username}')">🔑 Passwort</button>
-        ${!isSelf ? `<button class="btn btn-xs btn-danger" onclick="deleteUser('${u.username}')">🗑️ Löschen</button>` : ''}
-      </td>
-    `;
-    usersTableBody.appendChild(tr);
-  });
-}
-
-function populateOwnerDropdowns(users) {
-  [cfgOwnerUsername, newBotOwner].forEach(sel => {
-    if (!sel) return;
-    const prev = sel.value;
-    sel.innerHTML = '';
-    users.forEach(u => {
-      const opt = document.createElement('option');
-      opt.value = u.username;
-      opt.textContent = `${u.username} (${u.role})`;
-      sel.appendChild(opt);
-    });
-    if (prev) sel.value = prev;
-  });
-}
-
-function renderAdminBotsTable() {
-  if (!adminBotsTableBody) return;
-  adminBotsTableBody.innerHTML = '';
-
-  availableBots.forEach(b => {
-    const tr = document.createElement('tr');
-    const isSelected = b.id === activeBotId;
-    const statusDot = b.status === 'online' ? '🟢 Online' : b.status === 'connecting' || b.status === 'reconnecting' ? '🟡 Verbindet' : '⚪ Getrennt';
-
-    tr.innerHTML = `
-      <td><strong>${b.name}</strong> ${isSelected ? '<small style="color:var(--primary);">(Aktiv)</small>' : ''}</td>
-      <td>${b.ownerUsername || 'admin'}</td>
-      <td>${b.host}:${b.port}</td>
-      <td><code>${b.username}</code></td>
-      <td>${statusDot}</td>
-      <td class="table-actions">
-        <button class="btn btn-xs btn-primary" onclick="switchToBot('${b.id}')">🎮 Auswählen</button>
-        <button class="btn btn-xs btn-danger" onclick="adminDeleteBot('${b.id}', '${b.name}')">🗑️</button>
-      </td>
-    `;
-    adminBotsTableBody.appendChild(tr);
-  });
-}
-
-window.switchToBot = function (botId) {
-  botSelect.value = botId;
-  botSelect.dispatchEvent(new Event('change'));
-  // Zu Tab 1 wechseln
-  document.querySelector('.tab-btn[data-tab="tabDashboard"]').click();
-};
-
-window.adminDeleteBot = async function (botId, name) {
-  if (!confirm(`Bot-Profil "${name}" wirklich löschen?`)) return;
-  try {
-    const res = await fetch(`/api/bots/${botId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${authToken}` },
-    });
-    const data = await res.json();
-    if (data.success) {
-      availableBots = availableBots.filter(b => b.id !== botId);
-      if (activeBotId === botId) {
-        activeBotId = availableBots.length > 0 ? availableBots[0].id : null;
-      }
-      updateBotDropdown();
-      renderAdminBotsTable();
-    }
-  } catch (err) {
-    alert('Fehler beim Löschen: ' + err.message);
-  }
-};
-
-window.deleteUser = async function (username) {
-  if (!confirm(`Benutzer "${username}" wirklich unwiderruflich löschen?`)) return;
-
-  try {
-    const res = await fetch(`/api/admin/users/${encodeURIComponent(username)}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${authToken}` },
-    });
-    const data = await res.json();
-    if (data.success) {
-      loadAdminUsers();
-    } else {
-      alert(data.error || 'Fehler beim Löschen');
-    }
-  } catch (err) {
-    alert('Netzwerkfehler: ' + err.message);
-  }
-};
-
-window.openResetPasswordModal = function (username) {
-  resetTargetUsername.textContent = username;
-  resetTargetUserHidden.value = username;
-  modalResetPassword.style.display = 'flex';
-};
-
-// -------------------------------------------------------------
-// 8. Modals Logik
-// -------------------------------------------------------------
-
-// Modal: Neues Bot Profil
 btnOpenCreateBotModal.addEventListener('click', () => {
   modalCreateBot.style.display = 'flex';
 });
@@ -954,7 +813,6 @@ formCreateBot.addEventListener('submit', async e => {
   const port = parseInt(document.getElementById('newBotPort').value, 10) || 25565;
   const username = document.getElementById('newBotUsername').value.trim();
   const onJoinCmds = document.getElementById('newBotCommands').value;
-  const owner = currentUser.role === 'admin' && newBotOwner ? newBotOwner.value : currentUser.username;
 
   try {
     const res = await fetch('/api/bots', {
@@ -966,7 +824,6 @@ formCreateBot.addEventListener('submit', async e => {
         port,
         username,
         onJoinCommands: onJoinCmds,
-        ownerUsername: owner,
       }),
     });
 
@@ -977,7 +834,6 @@ formCreateBot.addEventListener('submit', async e => {
       availableBots.push({
         id: data.bot.id,
         name: data.bot.name,
-        ownerUsername: data.bot.ownerUsername,
         host: data.bot.mcConfig.host,
         port: data.bot.mcConfig.port,
         username: data.bot.mcConfig.username,
@@ -991,85 +847,15 @@ formCreateBot.addEventListener('submit', async e => {
       }
       applyBotData(data.bot);
     } else {
-      alert('Fehler beim Erstellen: ' + (data.error || 'Unbekannt'));
+      alert('Error creating profile: ' + (data.error || 'Unknown'));
     }
   } catch (err) {
-    alert('Netzwerkfehler: ' + err.message);
-  }
-});
-
-// Modal: Neuer Benutzer (Admin)
-btnOpenCreateUserModal.addEventListener('click', () => {
-  modalCreateUser.style.display = 'flex';
-});
-
-[btnCloseCreateUserModal, btnCancelCreateUser].forEach(el => {
-  el.addEventListener('click', () => {
-    modalCreateUser.style.display = 'none';
-  });
-});
-
-formCreateUser.addEventListener('submit', async e => {
-  e.preventDefault();
-  const username = document.getElementById('newUserName').value.trim();
-  const password = document.getElementById('newUserPassword').value;
-  const role = document.getElementById('newUserRole').value;
-
-  try {
-    const res = await fetch('/api/admin/users', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-      body: JSON.stringify({ username, password, role }),
-    });
-
-    const data = await res.json();
-    if (data.success) {
-      modalCreateUser.style.display = 'none';
-      formCreateUser.reset();
-      loadAdminUsers();
-      alert(`Benutzer "${username}" erfolgreich angelegt!`);
-    } else {
-      alert('Fehler: ' + (data.error || 'Konnte nicht angelegt werden'));
-    }
-  } catch (err) {
-    alert('Netzwerkfehler: ' + err.message);
-  }
-});
-
-// Modal: Admin Reset Password
-[btnCloseResetModal, btnCancelResetModal].forEach(el => {
-  el.addEventListener('click', () => {
-    modalResetPassword.style.display = 'none';
-  });
-});
-
-formResetPassword.addEventListener('submit', async e => {
-  e.preventDefault();
-  const targetUser = resetTargetUserHidden.value;
-  const newPass = document.getElementById('resetNewPassword').value;
-
-  try {
-    const res = await fetch(`/api/admin/users/${encodeURIComponent(targetUser)}/password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-      body: JSON.stringify({ newPassword: newPass }),
-    });
-
-    const data = await res.json();
-    if (data.success) {
-      modalResetPassword.style.display = 'none';
-      formResetPassword.reset();
-      alert(`Passwort für "${targetUser}" wurde aktualisiert!`);
-    } else {
-      alert('Fehler: ' + (data.error || 'Konnte nicht geändert werden'));
-    }
-  } catch (err) {
-    alert('Netzwerkfehler: ' + err.message);
+    alert('Network error: ' + err.message);
   }
 });
 
 // -------------------------------------------------------------
-// 9. Tab 4: Mein Account (Passwort ändern)
+// 8. Change Password Form (Admin)
 // -------------------------------------------------------------
 changePasswordForm.addEventListener('submit', async e => {
   e.preventDefault();
@@ -1082,7 +868,7 @@ changePasswordForm.addEventListener('submit', async e => {
   if (newPassword !== confirm) {
     accountFeedback.style.display = 'block';
     accountFeedback.className = 'alert-box inactive';
-    accountFeedback.textContent = 'Die Passwörter stimmen nicht überein';
+    accountFeedback.textContent = 'Passwords do not match';
     return;
   }
 
@@ -1097,22 +883,22 @@ changePasswordForm.addEventListener('submit', async e => {
     if (data.success) {
       accountFeedback.style.display = 'block';
       accountFeedback.className = 'alert-box active';
-      accountFeedback.textContent = '✅ Passwort erfolgreich geändert!';
+      accountFeedback.textContent = 'Password updated successfully.';
       changePasswordForm.reset();
     } else {
       accountFeedback.style.display = 'block';
       accountFeedback.className = 'alert-box inactive';
-      accountFeedback.textContent = data.error || 'Fehler beim Ändern des Passworts';
+      accountFeedback.textContent = data.error || 'Failed to change password';
     }
   } catch (err) {
     accountFeedback.style.display = 'block';
     accountFeedback.className = 'alert-box inactive';
-    accountFeedback.textContent = 'Netzwerkfehler: ' + err.message;
+    accountFeedback.textContent = 'Network error: ' + err.message;
   }
 });
 
 // -------------------------------------------------------------
-// 10. Tab-Navigation
+// 9. Tab Navigation
 // -------------------------------------------------------------
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -1123,11 +909,6 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.add('active');
     const targetContent = document.getElementById(targetTabId);
     if (targetContent) targetContent.classList.add('active');
-
-    if (targetTabId === 'tabAdmin') {
-      loadAdminUsers();
-      renderAdminBotsTable();
-    }
   });
 });
 

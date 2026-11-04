@@ -1,81 +1,86 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Minecraft Multi-Bot & Client Dashboard</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Client Manager</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- LOGIN VIEW (Standardmäßig sichtbar wenn nicht eingeloggt) -->
+  <!-- LOGIN VIEW -->
   <div id="loginView" class="login-wrapper">
-    <div class="card login-card">
+    <div class="login-card">
       <div class="login-header">
-        <div class="login-logo">⛏️</div>
-        <h2>Minecraft Client Manager</h2>
-        <p>Bitte mit deinem Benutzerkonto anmelden</p>
+        <div class="brand-mark brand-mark-lg">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 3.5 7.25v9.5L12 21.5l8.5-4.75v-9.5z"/><path d="m3.5 7.25 8.5 4.75 8.5-4.75"/><path d="M12 12v9.5"/></svg>
+        </div>
+        <h2>Client Manager</h2>
+        <p>Sign in to continue</p>
       </div>
 
       <div id="loginError" class="alert-box inactive" style="display: none; margin-bottom: 16px;"></div>
 
       <form id="loginForm" class="login-form">
         <div class="form-group">
-          <label for="loginUsername">Benutzername</label>
-          <input type="text" id="loginUsername" required placeholder="z. B. admin oder dein Nutzername" autocomplete="username" />
+          <label for="loginUsername">Username</label>
+          <input type="text" id="loginUsername" required autocomplete="username" />
         </div>
 
         <div class="form-group">
-          <label for="loginPassword">Passwort</label>
-          <input type="password" id="loginPassword" required placeholder="••••••••" autocomplete="current-password" />
+          <label for="loginPassword">Password</label>
+          <input type="password" id="loginPassword" required autocomplete="current-password" />
         </div>
 
-        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">
-          🔐 Anmelden
-        </button>
+        <button type="submit" class="btn btn-primary btn-block">Sign In</button>
       </form>
     </div>
   </div>
 
-  <!-- MAIN APP VIEW (Wird nach erfolgreichem Login eingeblendet) -->
+  <!-- MAIN APP VIEW -->
   <div id="mainAppView" class="app-container" style="display: none;">
     <!-- Header -->
     <header class="dashboard-header">
       <div class="logo-area">
-        <div class="logo-icon">⛏️</div>
-        <div>
-          <h1>Minecraft Client Manager</h1>
-          <div class="header-bot-bar">
-            <label for="botSelect" style="font-size: 0.8rem; color: var(--text-muted); margin-right: 4px;">Profil:</label>
-            <select id="botSelect" class="bot-dropdown"></select>
-            <button id="btnOpenCreateBotModal" class="btn btn-sm btn-secondary" title="Neues Profil erstellen">➕ Neu</button>
-          </div>
+        <div class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 3.5 7.25v9.5L12 21.5l8.5-4.75v-9.5z"/><path d="m3.5 7.25 8.5 4.75 8.5-4.75"/><path d="M12 12v9.5"/></svg>
+        </div>
+        <div class="brand-text">
+          <h1>Client Manager</h1>
+          <span class="subtitle">Headless Minecraft Bots</span>
+        </div>
+      </div>
+
+      <div class="header-center">
+        <div class="header-bot-bar">
+          <label for="botSelect" class="header-label">Profile</label>
+          <select id="botSelect" class="bot-dropdown"></select>
+          <button id="btnOpenCreateBotModal" class="btn btn-ghost btn-sm" title="Create a new bot profile">+ New</button>
         </div>
       </div>
 
       <div class="header-right">
         <div id="statusBadge" class="status-badge disconnected">
           <span class="status-dot"></span>
-          <span id="statusText">Getrennt</span>
+          <span id="statusText">Disconnected</span>
         </div>
 
         <div id="userBadge" class="user-pill">
-          <span class="user-icon">👤</span>
+          <span class="user-avatar"></span>
           <span id="userBadgeName">admin</span>
-          <span id="userBadgeRole" class="role-tag">Admin</span>
         </div>
 
-        <button id="btnLogout" class="btn btn-sm btn-logout" title="Abmelden">🚪 Logout</button>
+        <button id="btnLogout" class="btn btn-ghost btn-sm" title="Sign out">Logout</button>
       </div>
     </header>
 
-    <!-- Info & Target Bar -->
+    <!-- Info Bar -->
     <div class="info-bar">
       <div class="info-item">
-        <span class="info-label">Aktives Profil</span>
+        <span class="info-label">Active Profile</span>
         <span id="infoProfileName" class="info-value">...</span>
       </div>
       <div class="info-item">
@@ -83,53 +88,50 @@
         <span id="targetServer" class="info-value">...</span>
       </div>
       <div class="info-item">
-        <span class="info-label">Minecraft-Name</span>
+        <span class="info-label">Player</span>
         <span id="botName" class="info-value">...</span>
       </div>
       <div class="info-item">
-        <span class="info-label">Besitzer</span>
-        <span id="infoOwnerName" class="info-value">...</span>
-      </div>
-      <div class="info-item">
         <span class="info-label">Version</span>
-        <span id="mcVersion" class="info-value">Automatisch</span>
+        <span id="mcVersion" class="info-value">Automatic</span>
       </div>
     </div>
 
     <!-- Tab Navigation -->
     <nav class="tabs-nav">
-      <button class="tab-btn active" data-tab="tabDashboard">🎮 Dashboard & Konsole</button>
-      <button class="tab-btn" data-tab="tabSettings">⚙️ Bot-Einstellungen</button>
-      <button class="tab-btn" id="tabBtnAdmin" data-tab="tabAdmin" style="display: none;">👥 Admin Panel</button>
-      <button class="tab-btn" data-tab="tabAccount">🔑 Mein Account</button>
+      <button class="tab-btn active" data-tab="tabDashboard">Dashboard</button>
+      <button class="tab-btn" data-tab="tabSettings">Bot Settings</button>
+      <button class="tab-btn" data-tab="tabAccount">Change Password</button>
     </nav>
 
     <!-- TAB 1: DASHBOARD -->
     <div id="tabDashboard" class="tab-content active">
       <!-- Microsoft Login Alert Box -->
-      <div id="msaAlertBox" class="msa-alert-card" style="display: none; margin-bottom: 20px;">
-        <div class="msa-alert-icon">🔐</div>
+      <div id="msaAlertBox" class="msa-alert-card" style="display: none;">
+        <div class="msa-alert-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        </div>
         <div class="msa-alert-content">
-          <h3>Microsoft-Anmeldung erforderlich!</h3>
-          <p>Öffne die Login-Seite <a id="msaAlertLink" href="https://microsoft.com/devicelogin" target="_blank" rel="noopener">https://microsoft.com/devicelogin</a> und gib folgenden Code ein:</p>
+          <h3>Microsoft sign-in required</h3>
+          <p>Open <a id="msaAlertLink" href="https://microsoft.com/devicelogin" target="_blank" rel="noopener">https://microsoft.com/devicelogin</a> and enter this code:</p>
           <div class="msa-code-display">
             <code id="msaAlertCode">----</code>
-            <button type="button" id="btnCopyMsaCode" class="btn btn-sm btn-primary">📋 Code kopieren</button>
+            <button type="button" id="btnCopyMsaCode" class="btn btn-primary btn-sm">Copy Code</button>
           </div>
-          <small class="msa-alert-hint">Der Bot wartet 15 Minuten auf deine Bestätigung. Sobald du den Code bei Microsoft eingegeben hast, verbindet er sich automatisch und speichert das Login-Token dauerhaft.</small>
+          <small class="msa-alert-hint">The bot waits up to 15 minutes for your confirmation. Once confirmed, it connects automatically and caches the token.</small>
         </div>
       </div>
 
       <main class="dashboard-grid">
         <!-- Left Card: Controls -->
         <section class="card control-card">
-          <h2>Steuerung & Aktionen</h2>
+          <h2 class="card-title">Controls</h2>
 
           <!-- Auto-Rejoin Toggle -->
           <div class="toggle-container">
             <div class="toggle-text">
-              <strong>Automatisches Rejoinen</strong>
-              <p>Tritt dem Server nach Kicks oder Restarts automatisch wieder bei.</p>
+              <strong>Automatic Rejoin</strong>
+              <p>Rejoins the server after kicks or restarts.</p>
             </div>
             <label class="switch">
               <input type="checkbox" id="autoRejoinToggle">
@@ -138,14 +140,14 @@
           </div>
 
           <div id="rejoinStatusAlert" class="alert-box active">
-            Auto-Rejoin ist <span id="rejoinStateLabel">AKTIV</span>
+            Auto-Rejoin is <span id="rejoinStateLabel">ACTIVE</span>
           </div>
 
-          <!-- 30-Minuten Reconnect Toggle -->
+          <!-- Periodic Reconnect Toggle -->
           <div class="toggle-container" style="margin-top: 14px;">
             <div class="toggle-text">
-              <strong>Periodischer Reconnect (30 Min.)</strong>
-              <p>Trennt und verbindet den Bot automatisch alle 30 Min. neu, wenn er aktiv ist.</p>
+              <strong>Periodic Reconnect (<span id="periodicIntervalDisplay">30</span> min)</strong>
+              <p>Reconnects the bot every <span id="periodicIntervalDescDisplay">30</span> min while online.</p>
             </div>
             <label class="switch">
               <input type="checkbox" id="periodicReconnectToggle" checked>
@@ -154,38 +156,14 @@
           </div>
 
           <div id="periodicStatusAlert" class="alert-box active">
-            Periodischer Reconnect ist <span id="periodicStateLabel">AKTIV</span>
-            <div id="periodicCountdown" style="font-size: 0.8rem; margin-top: 4px; font-family: var(--font-mono); opacity: 0.95;">Nächster Reconnect in: --:--</div>
+            Periodic Reconnect is <span id="periodicStateLabel">ACTIVE</span>
+            <div id="periodicCountdown" class="countdown">Next reconnect in: --:--</div>
           </div>
 
-          <!-- Manuelle Steuerung -->
+          <!-- Manual Controls -->
           <div class="action-buttons">
-            <button id="btnConnect" class="btn btn-primary">
-              <span>▶</span> Jetzt Verbinden
-            </button>
-            <button id="btnDisconnect" class="btn btn-danger" disabled>
-              <span>⏹</span> Trennen
-            </button>
-          </div>
-
-          <!-- Bewegungskontrollen -->
-          <div class="movement-controls">
-            <button id="btnJump" class="btn btn-secondary" title="Lässt den Bot einmal springen">
-              <span>🦘</span> Springen
-            </button>
-            <button id="btnSneak" class="btn btn-secondary" title="Schaltet Sneak/Ducken an oder aus">
-              <span>👟</span> Sneak
-            </button>
-          </div>
-
-          <!-- Schnellbefehle -->
-          <div class="quick-commands">
-            <h3>⚡ Schnellbefehle (CityBuild)</h3>
-            <div class="quick-buttons-grid">
-              <button class="btn btn-secondary quick-btn" data-cmd="/server cb1">/server cb1</button>
-              <button class="btn btn-secondary quick-btn" data-cmd="/server cb2">/server cb2</button>
-              <button class="btn btn-secondary quick-btn" data-cmd="/server cb3">/server cb3</button>
-            </div>
+            <button id="btnConnect" class="btn btn-primary">Connect</button>
+            <button id="btnDisconnect" class="btn btn-danger" disabled>Disconnect</button>
           </div>
         </section>
 
@@ -194,342 +172,198 @@
           <div class="terminal-header">
             <div class="terminal-title">
               <span class="terminal-indicator"></span>
-              Live-Konsole & Chat (<span id="termBotName">Bot</span>)
+              Console &middot; <span id="termBotName">Bot</span>
             </div>
-            <button id="btnClearLogs" class="btn btn-sm btn-secondary">Leeren</button>
+            <button id="btnClearLogs" class="btn btn-ghost btn-sm">Clear</button>
           </div>
 
           <div id="terminal" class="terminal-body">
-            <div class="log-entry system">[SYSTEM] Dashboard initialisiert. Warte auf Verbindung...</div>
+            <div class="log-entry log-system">[SYSTEM] Dashboard initialized. Waiting for connection...</div>
           </div>
 
           <form id="commandForm" class="command-form">
             <div class="command-input-wrapper">
-              <span class="prompt-symbol">&gt;</span>
-              <input 
-                type="text" 
-                id="commandInput" 
-                placeholder="Befehl oder Chatnachricht eingeben (z. B. /server cb1 oder Hallo!)..." 
-                autocomplete="off"
-              />
+              <span class="prompt-symbol">&rsaquo;</span>
+              <input type="text" id="commandInput" placeholder="Type a command or chat message..." autocomplete="off" />
             </div>
-            <button type="submit" class="btn btn-primary">Senden</button>
+            <button type="submit" class="btn btn-primary">Send</button>
           </form>
         </section>
       </main>
     </div>
 
-    <!-- TAB 2: BOT-EINSTELLUNGEN -->
+    <!-- TAB 2: BOT SETTINGS -->
     <div id="tabSettings" class="tab-content">
       <section class="card settings-card">
         <div class="settings-header">
-          <h2>⚙️ Einstellungen für ausgewähltes Profil</h2>
-          <p>Passe die Verbindung und das Verhalten für das Profil <strong id="settingsProfileLabel">...</strong> an.</p>
+          <h2 class="card-title">Profile Settings</h2>
+          <p>Connection and behavior for <strong id="settingsProfileLabel">...</strong></p>
         </div>
 
         <div id="configFeedback" class="alert-box" style="display: none; margin-bottom: 20px;"></div>
 
         <form id="configForm">
-          <div class="form-section-title">Allgemein & Profil</div>
+          <div class="form-section-title">General</div>
           <div class="form-grid">
             <div class="form-group full-width">
-              <label for="cfgProfileName">Profilname (Anzeigename)</label>
-              <input type="text" id="cfgProfileName" placeholder="z. B. PrimeBlocks CB1" required />
-            </div>
-
-            <div class="form-group" id="cfgOwnerGroup" style="display: none;">
-              <label for="cfgOwnerUsername">Besitzer (Admin-Verwaltung)</label>
-              <select id="cfgOwnerUsername"></select>
+              <label for="cfgProfileName">Profile Name</label>
+              <input type="text" id="cfgProfileName" required />
             </div>
           </div>
 
-          <div class="form-section-title" style="margin-top: 24px;">Minecraft-Server & Account</div>
+          <div class="form-section-title">Server &amp; Account</div>
           <div class="form-grid">
             <div class="form-group">
-              <label for="cfgHost">Server-Adresse (Host/IP)</label>
-              <input type="text" id="cfgHost" placeholder="z. B. primeblocks.net" required />
+              <label for="cfgHost">Server Address</label>
+              <input type="text" id="cfgHost" required />
             </div>
 
             <div class="form-group">
-              <label for="cfgPort">Server-Port</label>
-              <input type="number" id="cfgPort" value="25565" min="1" max="65535" required />
+              <label for="cfgPort">Port</label>
+              <input type="number" id="cfgPort" min="1" max="65535" required />
             </div>
 
             <div class="form-group">
-              <label for="cfgUsername">Minecraft-Spielername</label>
-              <input type="text" id="cfgUsername" placeholder="z. B. MelonengolemGHG" required />
+              <label for="cfgUsername">Minecraft Player Name</label>
+              <input type="text" id="cfgUsername" required />
             </div>
 
             <div class="form-group">
-              <label>Authentifizierung</label>
+              <label>Authentication</label>
               <div class="auth-locked-box">
-                <span class="auth-badge">🔐 Microsoft Account</span>
-                <span class="auth-subtext">Isolierter Device-Code Token-Cache</span>
+                <span class="auth-badge">Microsoft Account</span>
+                <span class="auth-subtext">Device code &middot; isolated token cache</span>
               </div>
             </div>
 
             <div class="form-group">
-              <label for="cfgVersion">Minecraft-Version</label>
-              <input type="text" id="cfgVersion" placeholder="Leer lassen für automatische Erkennung" />
-              <small class="form-hint">Leer lassen für Auto-Erkennung oder z. B. 1.20.4 oder 1.21</small>
+              <label for="cfgVersion">Minecraft Version</label>
+              <input type="text" id="cfgVersion" />
+              <small class="form-hint">Leave blank for automatic detection.</small>
             </div>
 
             <div class="form-group">
-              <label for="cfgReconnectDelaySec">Wiederverbindung nach Kick (Sekunden)</label>
-              <input type="number" id="cfgReconnectDelaySec" min="1" max="300" value="10" />
+              <label for="cfgReconnectDelaySec">Reconnect Delay after Kick (s)</label>
+              <input type="number" id="cfgReconnectDelaySec" min="1" max="300" />
             </div>
           </div>
 
-          <div class="form-section-title" style="margin-top: 24px;">Automatisches Verhalten & Befehle</div>
+          <div class="form-section-title">Automation</div>
           <div class="form-grid">
             <div class="form-group full-width">
-              <label for="cfgOnJoinCommands">On-Join Befehle</label>
-              <input type="text" id="cfgOnJoinCommands" placeholder="z. B. /server cb1, /server cb2" />
-              <small class="form-hint">Mehrere Befehle mit Komma trennen. Werden nach dem Spawnen automatisch gesendet.</small>
+              <label for="cfgOnJoinCommands">On-Join Commands</label>
+              <input type="text" id="cfgOnJoinCommands" />
+              <small class="form-hint">Separate multiple commands with commas. Sent automatically after spawning.</small>
             </div>
 
             <div class="form-group">
-              <label for="cfgOnJoinDelaySec">Verzögerung für Join-Befehle (Sekunden)</label>
-              <input type="number" id="cfgOnJoinDelaySec" min="0" max="60" value="3" />
+              <label for="cfgOnJoinDelaySec">On-Join Delay (s)</label>
+              <input type="number" id="cfgOnJoinDelaySec" min="0" max="60" />
             </div>
 
             <div class="form-group">
-              <label for="cfgPeriodicIntervalMin">Periodischer Reconnect Intervall (Minuten)</label>
-              <input type="number" id="cfgPeriodicIntervalMin" min="1" max="1440" value="30" />
-              <small class="form-hint">Standard: 30 Min. Trennt & verbindet den Bot automatisch neu.</small>
+              <label for="cfgPeriodicIntervalMin">Periodic Reconnect Interval (min)</label>
+              <input type="number" id="cfgPeriodicIntervalMin" min="1" max="1440" />
             </div>
 
             <div class="form-group checkbox-group">
               <label class="checkbox-label">
                 <input type="checkbox" id="cfgEnablePhysics" checked />
-                <span>PaperMC-Heartbeats & Physik aktivieren</span>
+                <span>PaperMC heartbeats &amp; physics</span>
               </label>
-              <small class="form-hint">Sendet 50ms tick_end Heartbeats gegen Anti-Cheat Kicks.</small>
+              <small class="form-hint">Sends tick_end heartbeats to prevent anti-cheat kicks.</small>
             </div>
 
             <div class="form-group checkbox-group">
               <label class="checkbox-label">
                 <input type="checkbox" id="cfgAntiAfk" checked />
-                <span>Anti-AFK Routine aktivieren (Empfohlen)</span>
+                <span>Anti-AFK routine</span>
               </label>
-              <small class="form-hint">Sendet alle 45s minimale Arm-/Blick-Aktivität, damit der Server den Bot nicht wegen Inaktivität kickt.</small>
+              <small class="form-hint">Swings the arm every 45s to prevent inactivity kicks.</small>
             </div>
           </div>
 
           <div class="settings-actions">
-            <button type="submit" class="btn btn-primary" id="btnSaveConfig">
-              💾 Einstellungen speichern
-            </button>
-            <button type="button" class="btn btn-secondary" id="btnClearAuthCache" title="Löscht den gespeicherten Microsoft-Token für dieses Profil">
-              🔄 Auth-Cache leeren (Neuer Login)
-            </button>
-            <button type="button" class="btn btn-danger" id="btnDeleteCurrentBot" style="margin-left: auto;">
-              🗑️ Profil löschen
-            </button>
+            <button type="submit" class="btn btn-primary" id="btnSaveConfig">Save Settings</button>
+            <button type="button" class="btn btn-ghost" id="btnClearAuthCache" title="Clears the saved Microsoft token for this profile">Clear Auth Cache</button>
+            <button type="button" class="btn btn-danger" id="btnDeleteCurrentBot" style="margin-left: auto;">Delete Profile</button>
           </div>
         </form>
       </section>
     </div>
 
-    <!-- TAB 3: ADMIN PANEL (Nur sichtbar für role: 'admin') -->
-    <div id="tabAdmin" class="tab-content">
-      <div class="admin-grid">
-        <!-- Benutzerverwaltung -->
-        <section class="card">
-          <div class="admin-card-header">
-            <div>
-              <h2>👥 Benutzerverwaltung</h2>
-              <p>Verwalte Benutzerkonten, erstelle neue Zugänge und weise Profile zu.</p>
-            </div>
-            <button id="btnOpenCreateUserModal" class="btn btn-primary btn-sm">➕ Neuer Benutzer</button>
-          </div>
-
-          <div id="adminUserFeedback" class="alert-box" style="display: none; margin: 12px 0;"></div>
-
-          <div class="table-responsive">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Benutzername</th>
-                  <th>Rolle</th>
-                  <th>Zugeordnete Bots</th>
-                  <th>Erstellt am</th>
-                  <th>Aktionen</th>
-                </tr>
-              </thead>
-              <tbody id="usersTableBody">
-                <!-- Dynamisch befüllt -->
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <!-- Gesamtübersicht aller Bots -->
-        <section class="card" style="margin-top: 20px;">
-          <div class="admin-card-header">
-            <div>
-              <h2>🤖 Alle Bot-Profile im System</h2>
-              <p>Übersicht über alle Accounts und Server im Multi-Bot Netzwerk.</p>
-            </div>
-          </div>
-
-          <div class="table-responsive">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Profilname</th>
-                  <th>Besitzer</th>
-                  <th>Server</th>
-                  <th>Minecraft Account</th>
-                  <th>Status</th>
-                  <th>Aktionen</th>
-                </tr>
-              </thead>
-              <tbody id="adminBotsTableBody">
-                <!-- Dynamisch befüllt -->
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </div>
-    </div>
-
-    <!-- TAB 4: MEIN ACCOUNT -->
+    <!-- TAB 3: CHANGE PASSWORD -->
     <div id="tabAccount" class="tab-content">
       <section class="card account-card">
-        <h2>🔑 Mein Account</h2>
-        <p>Ändere dein Anmeldepasswort für das Web-Dashboard.</p>
+        <h2 class="card-title">Change Password</h2>
+        <p class="card-subtitle">Update your admin dashboard password.</p>
 
         <div id="accountFeedback" class="alert-box" style="display: none; margin: 16px 0;"></div>
 
-        <form id="changePasswordForm" style="max-width: 480px; margin-top: 16px;">
+        <form id="changePasswordForm" class="account-form">
           <div class="form-group">
-            <label for="accCurrentPass">Aktuelles Passwort</label>
+            <label for="accCurrentPass">Current Password</label>
             <input type="password" id="accCurrentPass" required autocomplete="current-password" />
           </div>
 
           <div class="form-group">
-            <label for="accNewPass">Neues Passwort</label>
+            <label for="accNewPass">New Password</label>
             <input type="password" id="accNewPass" minlength="4" required autocomplete="new-password" />
           </div>
 
           <div class="form-group">
-            <label for="accNewPassConfirm">Neues Passwort bestätigen</label>
+            <label for="accNewPassConfirm">Confirm New Password</label>
             <input type="password" id="accNewPassConfirm" minlength="4" required autocomplete="new-password" />
           </div>
 
-          <button type="submit" class="btn btn-primary" style="margin-top: 12px;">
-            🔒 Passwort jetzt aktualisieren
-          </button>
+          <button type="submit" class="btn btn-primary">Update Password</button>
         </form>
       </section>
     </div>
 
-    <!-- Footer -->
     <footer class="dashboard-footer">
-      <span>Multi-User & Multi-Bot System für Ubuntu Server (1 GB RAM Optimiert)</span>
-      <span>Mineflayer Engine & Microsoft Device Code Auth</span>
+      <span>Client Manager &middot; Minecraft Bots</span>
+      <span>Made by melonengolem &middot; <a href="https://github.com/ldrnico" target="_blank" rel="noopener noreferrer">GitHub</a></span>
     </footer>
   </div>
 
-  <!-- MODAL: NEUES BOT-PROFIL ERSTELLEN -->
+  <!-- MODAL: CREATE BOT PROFILE -->
   <div id="modalCreateBot" class="modal-backdrop" style="display: none;">
     <div class="modal-card">
       <div class="modal-header">
-        <h3>➕ Neues Bot-Profil anlegen</h3>
+        <h3>New Bot Profile</h3>
         <button class="modal-close" id="btnCloseCreateBotModal">&times;</button>
       </div>
       <form id="formCreateBot">
         <div class="form-group">
-          <label for="newBotName">Profilname</label>
-          <input type="text" id="newBotName" placeholder="z. B. PrimeBlocks CB2" required />
-        </div>
-
-        <div class="form-group" id="newBotOwnerGroup" style="display: none;">
-          <label for="newBotOwner">Besitzer zuweisen</label>
-          <select id="newBotOwner"></select>
+          <label for="newBotName">Profile Name</label>
+          <input type="text" id="newBotName" required />
         </div>
 
         <div class="form-row">
           <div class="form-group" style="flex: 2;">
-            <label for="newBotHost">Server-Adresse</label>
-            <input type="text" id="newBotHost" value="primeblocks.net" required />
+            <label for="newBotHost">Server Address</label>
+            <input type="text" id="newBotHost" required />
           </div>
           <div class="form-group" style="flex: 1;">
             <label for="newBotPort">Port</label>
-            <input type="number" id="newBotPort" value="25565" required />
+            <input type="number" id="newBotPort" placeholder="25565" />
           </div>
         </div>
 
         <div class="form-group">
-          <label for="newBotUsername">Minecraft-Spielername (Microsoft Account)</label>
-          <input type="text" id="newBotUsername" placeholder="z. B. ZweitAccount123" required />
+          <label for="newBotUsername">Minecraft Player Name</label>
+          <input type="text" id="newBotUsername" required />
         </div>
 
         <div class="form-group">
-          <label for="newBotCommands">On-Join Befehle (optional)</label>
-          <input type="text" id="newBotCommands" value="/server cb1" placeholder="/server cb1, /msg ..." />
+          <label for="newBotCommands">On-Join Commands (optional)</label>
+          <input type="text" id="newBotCommands" />
         </div>
 
         <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" id="btnCancelCreateBot">Abbrechen</button>
-          <button type="submit" class="btn btn-primary">Profil erstellen & verbinden</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- MODAL: NEUER BENUTZER (ADMIN) -->
-  <div id="modalCreateUser" class="modal-backdrop" style="display: none;">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3>👥 Neuen Benutzer anlegen</h3>
-        <button class="modal-close" id="btnCloseCreateUserModal">&times;</button>
-      </div>
-      <form id="formCreateUser">
-        <div class="form-group">
-          <label for="newUserName">Benutzername</label>
-          <input type="text" id="newUserName" minlength="3" placeholder="z. B. nico" required autocomplete="off" />
-        </div>
-
-        <div class="form-group">
-          <label for="newUserPassword">Initiales Passwort</label>
-          <input type="password" id="newUserPassword" minlength="4" required autocomplete="new-password" />
-        </div>
-
-        <div class="form-group">
-          <label for="newUserRole">Rolle</label>
-          <select id="newUserRole">
-            <option value="user" selected>Normaler Benutzer (Nur eigene Bots)</option>
-            <option value="admin">Administrator (Vollzugriff & Admin Panel)</option>
-          </select>
-        </div>
-
-        <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" id="btnCancelCreateUser">Abbrechen</button>
-          <button type="submit" class="btn btn-primary">Benutzer anlegen</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- MODAL: PASSWORT FÜR BENUTZER ZURÜCKSETZEN (ADMIN) -->
-  <div id="modalResetPassword" class="modal-backdrop" style="display: none;">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3>🔑 Passwort ändern für <span id="resetTargetUsername">...</span></h3>
-        <button class="modal-close" id="btnCloseResetModal">&times;</button>
-      </div>
-      <form id="formResetPassword">
-        <input type="hidden" id="resetTargetUserHidden" />
-        <div class="form-group">
-          <label for="resetNewPassword">Neues Passwort eingeben</label>
-          <input type="password" id="resetNewPassword" minlength="4" required />
-        </div>
-
-        <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" id="btnCancelResetModal">Abbrechen</button>
-          <button type="submit" class="btn btn-primary">Passwort festlegen</button>
+          <button type="button" class="btn btn-ghost" id="btnCancelCreateBot">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Profile</button>
         </div>
       </form>
     </div>
