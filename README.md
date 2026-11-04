@@ -6,34 +6,6 @@ Run multiple Minecraft accounts simultaneously across different servers with an 
 
 ---
 
-## ⚡ Quickstart (Ready in 2 Minutes)
-
-On your Ubuntu server (20.04 / 22.04 / 24.04):
-
-```bash
-# 1. Create project directory and navigate into it
-sudo mkdir -p /opt/minecraft-bot && cd /opt/minecraft-bot
-
-# 2. Clone the repository
-sudo git clone https://github.com/ldrnico/minecraft-bot.git .
-
-# 3. Run the automated installer
-chmod +x install.sh
-sudo ./install.sh
-
-# 4. Optional: Customize your admin password
-nano .env
-
-# 5. Start the bot client 24/7 in the background
-pm2 start ecosystem.config.js
-pm2 save
-```
-
-Then open your browser:
-👉 **`http://YOUR-SERVER-IP:3000`**
-
----
-
 ## 💡 Why This Solution for 1 GB RAM VPS?
 
 Running vanilla Minecraft Java with a graphical environment requires at least 2 GB of RAM and a full desktop stack (X11 / VNC), instantly triggering Out-Of-Memory (OOM) crashes on low-end servers.
