@@ -1,79 +1,80 @@
 # 🎮 Minecraft Client Manager (Headless Web Dashboard)
 
-Ein extrem leichtgewichtiger, headless Minecraft-Client-Manager auf Basis von **Node.js (v22 LTS) & Mineflayer**, speziell optimiert für **Ubuntu Linux Server (auch mit nur 1 GB RAM)**.
+An ultra-lightweight, headless Minecraft client manager built with **Node.js (v22 LTS) & Mineflayer**, specially optimized for **Ubuntu Linux Servers (even with just 1 GB RAM)**.
 
-Ermöglicht das gleichzeitige Betreiben **mehrerer Minecraft-Accounts auf verschiedenen Servern (Multi-Bot Engine)**, automatische Reconnects, Anti-AFK, Chat-Befehle und eine moderne, reaktive Dark-Mode Web-Bedienoberfläche.
+Run multiple Minecraft accounts simultaneously across different servers with an isolated **multi-bot engine**, automatic re-join, anti-AFK arm swinging, in-game chat & commands, and a modern reactive dark-mode web dashboard.
 
 ---
 
-## ⚡ Blitz-Installation (In 2 Minuten startklar)
+## ⚡ Quickstart (Ready in 2 Minutes)
 
-Wenn du dich frisch per SSH auf deinem Ubuntu-Server (z. B. 20.04 / 22.04 / 24.04) angemeldet hast:
+On your Ubuntu server (20.04 / 22.04 / 24.04):
 
 ```bash
-# 1. In den Zielordner wechseln & Dateien bereitstellen
+# 1. Create project directory and navigate into it
 sudo mkdir -p /opt/minecraft-bot && cd /opt/minecraft-bot
 
-# 2. Dateien übertragen (oder git clone)
-# (Kopiere die Projektdateien hierher)
+# 2. Clone the repository
+sudo git clone https://github.com/ldrnico/minecraft-bot.git .
 
-# 3. Installationsskript ausführen
+# 3. Run the automated installer
 chmod +x install.sh
 sudo ./install.sh
 
-# 4. Optional: Admin-Passwort anpassen
+# 4. Optional: Customize your admin password
 nano .env
 
-# 5. Client 24/7 im Hintergrund starten
+# 5. Start the bot client 24/7 in the background
 pm2 start ecosystem.config.js
 pm2 save
 ```
 
-Öffne anschließend einfach deinen Browser:
-👉 **`http://DEINE-SERVER-IP:3000`**
+Then open your browser:
+👉 **`http://YOUR-SERVER-IP:3000`**
 
 ---
 
-## 💡 Warum diese Lösung für 1 GB RAM Server?
+## 💡 Why This Solution for 1 GB RAM VPS?
 
-Ein normales Minecraft Java mit Grafikoberfläche benötigt mindestens 2 GB RAM sowie eine Desktop-Umgebung (X11/VNC) und stürzt auf einem 1 GB VPS sofort ab (OOM Crash).
+Running vanilla Minecraft Java with a graphical environment requires at least 2 GB of RAM and a full desktop stack (X11 / VNC), instantly triggering Out-Of-Memory (OOM) crashes on low-end servers.
 
-Dieser Client basiert auf der **Mineflayer-Engine**:
-- **Sehr sparsam:** Nur ca. **60 MB bis 90 MB RAM pro aktivem Bot**.
-- **Headless:** Läuft vollständig ohne GUI im Hintergrund via PM2.
-- **Automatische 2 GB Swap-Datei:** Das Installationsskript richtet automatisch Swap-Speicher ein, damit der Server bei Lastspitzen nie abstürzt.
-- **Multi-Bot Engine:** Mehrere Minecraft-Accounts können parallel auf unterschiedlichen Servern aktiv sein.
+This client uses the **Mineflayer headless protocol engine**:
+- **Ultra-low memory footprint:** Uses only **60 MB to 90 MB RAM per active bot**.
+- **Fully Headless:** Runs cleanly in the background managed by PM2.
+- **Automated 2 GB Swapfile:** The installation script automatically provisions a 2 GB swapfile so the server never crashes during memory spikes.
+- **Multi-Bot Engine:** Multiple Minecraft accounts can be active on completely different servers simultaneously.
 
 ---
 
-## 📋 Schritt-für-Schritt Anleitung (Von Null auf Ubuntu)
+## 📋 Step-by-Step Installation Guide
 
-### Schritt 1: Mit dem Ubuntu-Server verbinden
-Öffne PowerShell oder ein Terminal auf deinem PC und verbinde dich per SSH:
+### Step 1: Connect to your Ubuntu Server
+Open PowerShell or a terminal on your computer and connect via SSH:
 ```bash
-ssh root@DEINE-SERVER-IP
+ssh root@YOUR-SERVER-IP
 ```
 
 ---
 
-### Schritt 2: Projektdateien auf den Server laden
+### Step 2: Transfer Files to the Server
 
-#### Option A: Per FileZilla / WinSCP (Einfachste Methode)
-1. Verbinde dich per SFTP mit deinem Server.
-2. Erstelle auf dem Server den Ordner: `/opt/minecraft-bot`
-3. Ziehe alle Dateien aus diesem Projektordner dort hinein.
-
-#### Option B: Per Git
+#### Option A: Git Clone (Recommended)
 ```bash
+sudo mkdir -p /opt/minecraft-bot
 sudo git clone https://github.com/ldrnico/minecraft-bot.git /opt/minecraft-bot
 cd /opt/minecraft-bot
 ```
 
+#### Option B: SFTP (FileZilla / WinSCP)
+1. Connect via SFTP to your server.
+2. Create directory: `/opt/minecraft-bot`.
+3. Upload all files from this project into that directory.
+
 ---
 
-### Schritt 3: Automatischen Installer ausführen
+### Step 3: Run the Automated Installer
 
-Wechsle in das Verzeichnis und starte das mitgelieferte Installationsskript:
+Navigate to the directory and run the included installer:
 
 ```bash
 cd /opt/minecraft-bot
@@ -81,40 +82,39 @@ chmod +x install.sh
 sudo ./install.sh
 ```
 
-**Was das Skript vollautomatisch für dich erledigt:**
-1. ✅ Richtet eine **2 GB Swap-Datei** ein (verhindert Out-Of-Memory auf 1 GB Servern).
-2. ✅ Installiert **Node.js 22 LTS** und npm.
-3. ✅ Installiert alle erforderlichen Pakete (`mineflayer`, `express`, `ws` etc.).
-4. ✅ Öffnet den Port `3000/tcp` in der Ubuntu-Firewall (`ufw`).
-5. ✅ Installiert den Prozessmanager **PM2** und richtet den Autostart bei Server-Reboots ein.
-6. ✅ Erstellt die Datei `.env` aus der Vorlage.
+**What the installer does automatically:**
+1. ✅ Sets up a **2 GB swapfile** (prevents OOM crashes on 1 GB VPS).
+2. ✅ Installs **Node.js 22 LTS** and npm.
+3. ✅ Installs production dependencies (`mineflayer`, `express`, `ws`, etc.).
+4. ✅ Opens firewall port `3000/tcp` (`ufw`).
+5. ✅ Installs **PM2** process manager and enables systemd reboot autostart.
+6. ✅ Generates a default `.env` configuration file.
 
 ---
 
-### Schritt 4: Web-Zugangsdaten einrichten
+### Step 4: Configure Web Access
 
-Bearbeite die Datei `.env`:
+Edit the `.env` file:
 ```bash
 nano .env
 ```
 
-Trage dein gewünschtes Passwort für das Web-Dashboard ein:
+Enter your desired credentials for the web dashboard:
 ```ini
 WEB_PORT=3000
 WEB_USER=admin
-WEB_PASSWORD=DeinSicheresPasswortHier
-WEB_SECRET=einZufaelligerGeheimerSchluessel
+WEB_PASSWORD=YourSecurePasswordHere
 ```
-*(In `nano` speichern: `Strg + O`, `Enter` drücken. Schließen: `Strg + X`)*
+*(In `nano`, save with `Ctrl + O`, press `Enter`. Exit with `Ctrl + X`)*
 
 > [!NOTE]
-> Das Passwort in der `.env` wird für die Ersteinrichtung verwendet. Danach kannst du dein Passwort jederzeit bequem direkt im Webinterface unter **„Change Password“** ändern.
+> The password in `.env` is used for the initial setup. Once logged in, you can update your password anytime directly in the dashboard under **"Change Password"**.
 
 ---
 
-### Schritt 5: Bot starten & 24/7 Autostart sichern
+### Step 5: Start the Bot & Enable 24/7 Autostart
 
-Starte den Serverprozess mit dem vorkonfigurierten PM2-Setup:
+Start the service using PM2:
 
 ```bash
 cd /opt/minecraft-bot
@@ -122,83 +122,82 @@ pm2 start ecosystem.config.js
 pm2 save
 ```
 
-Damit läuft der Bot rund um die Uhr im Hintergrund und startet auch nach einem Server-Neustart automatisch wieder.
+Your bot manager now runs 24/7 and restarts automatically if the server reboots.
 
 ---
 
-### Schritt 6: Dashboard im Browser aufrufen
+### Step 6: Access the Web Dashboard
 
-Öffne an deinem PC oder Smartphone den Webbrowser:
+Open your web browser on your PC or smartphone:
 ```text
-http://DEINE-SERVER-IP:3000
+http://YOUR-SERVER-IP:3000
 ```
 
-1. Melde dich mit deinen Zugangsdaten aus der `.env` an.
-2. Klicke oben auf **`+ New`**, um ein Bot-Profil anzulegen (Server-Adresse, Port und Minecraft-Spielername eintragen).
+1. Log in with the credentials defined in `.env`.
+2. Click **`+ New`** in the header to create your first bot profile (enter server IP, port, and Minecraft player name).
 
 ---
 
-## 🔐 Der Microsoft Device Code Login (Nur 1x nötig)
+## 🔐 Microsoft Device Code Sign-In (Only Needed Once)
 
-Der Bot nutzt die offizielle und sichere **Microsoft Device Code Authentifizierung** (du musst dein Microsoft-Passwort niemals auf dem Server eingeben!):
+The client uses official, secure **Microsoft Device Code Authentication** (you never have to type your Microsoft password onto the server):
 
-1. Klicke im Dashboard auf **„Connect“** (`▶`).
-2. Im Dashboard erscheint eine gelbe Benachrichtigungsbox mit einem Login-Code (z. B. `ABCD-EFGH`).
-3. Öffne im Browser [https://microsoft.com/devicelogin](https://microsoft.com/devicelogin).
-4. Gib dort den Code ein und bestätige den Zugriff mit deinem Minecraft-Microsoft-Konto.
-5. Der Bot loggt sich automatisch ein und speichert den sicheren Session-Token verschlüsselt im Ordner `./auth-cache/`.
-6. **Fertig!** Bei künftigen Reconnects verbindet sich der Bot vollautomatisch, ohne dass du den Code erneut eingeben musst.
-
----
-
-## ✨ Features im Überblick
-
-* **Multi-Bot Profile:** Verwalte mehrere Accounts und Server gleichzeitig. Wechsel zwischen Bots mit einem Klick im Dropdown.
-* **Auto-Rejoin Schalter:** Automatisches Wiederverbinden nach Server-Restarts oder Kicks per Toggle im Dashboard steuerbar.
-* **Periodischer Reconnect:** Trennt und verbindet den Bot in einem frei einstellbaren Minuten-Intervall neu (z. B. alle 30 Min.), inklusive Live-Countdown.
-* **Live-Konsole & Chat:** Beobachte Server-Nachrichten und Chat in Echtzeit.
-* **Befehlszeile:** Sende Chat-Nachrichten oder Server-Befehle (z. B. `/server cb1`) direkt über das Dashboard an Minecraft.
-* **PaperMC / Velocity Anti-Cheat Fixes:** Integrierte Heartbeats (`tick_end`), Handshakes für Ressourcenpakete und Konfigurationsphasen-Erkennung verhindern Verbindungsabbrüche auf modernen Servern.
-* **Admin-Passwort ändern:** Passwort jederzeit im Reiter **„Change Password“** anpassen.
+1. Click **"Connect"** (`▶`) in the dashboard.
+2. A yellow alert box appears displaying a login code (e.g., `ABCD-EFGH`) with a **Copy Code** button.
+3. Click the link to open [https://microsoft.com/devicelogin](https://microsoft.com/devicelogin).
+4. Enter the code and authorize access with your Microsoft/Minecraft account.
+5. The bot connects automatically and stores the encrypted session token in `./auth-cache/<botId>/`.
+6. **Done!** Future re-joins and server restarts will connect automatically without prompting for a code.
 
 ---
 
-## 🔧 Nützliche Befehle (Wartung & Steuerung)
+## ✨ Features
+
+* **Multi-Bot Profiles:** Manage multiple accounts and servers simultaneously. Switch bots with a single click in the header dropdown.
+* **Auto-Rejoin Toggle:** Automatically reconnects after server kicks or restarts.
+* **Periodic Reconnect:** Disconnects and reconnects on a customizable interval (e.g. every 30 minutes) with a live countdown display.
+* **Live Console & Chat:** Watch server messages and chat logs in real-time.
+* **In-Game Command Bar:** Send chat messages or slash commands (e.g., `/server cb1`) directly from the web interface.
+* **PaperMC / Velocity Anti-Cheat Compatibility:** Integrated `tick_end` packets, resource-pack auto-handshakes, and configuration-phase handling prevent timeouts on modern Minecraft networks.
+* **Password Management:** Change admin password anytime under the **"Change Password"** tab.
+
+---
+
+## 🔧 Maintenance Commands
 
 ```bash
-# Live-Logs der Bots im Terminal ansehen
+# View live terminal logs
 pm2 logs mc-client-bot
 
-# Bot neu starten (z. B. nach Updates)
+# Restart the bot client
 pm2 restart mc-client-bot
 
-# Bot stoppen
+# Stop the bot client
 pm2 stop mc-client-bot
 
-# Status & Speichernutzung prüfen
+# Check process status and memory usage
 pm2 status
 
-# RAM-Verbrauch des gesamten Servers anzeigen
+# View server memory consumption
 free -h
 ```
 
 ---
 
-## ❓ Häufige Fragen & Troubleshooting
+## ❓ Troubleshooting
 
-### Die Weboberfläche lädt nicht?
-Prüfe, ob Port 3000 in der Firewall deines Cloud-Anbieters (z. B. Hetzner Firewall, AWS Security Group) und auf dem Ubuntu-Server freigegeben ist:
+### Web dashboard won't load?
+Ensure port 3000 is open in your cloud provider's firewall (e.g., Hetzner Cloud Firewall, AWS Security Group) as well as UFW:
 ```bash
 sudo ufw allow 3000/tcp
 ```
 
-### Der Bot verbindet sich nicht mit dem Microsoft-Konto?
-Falls ein Token abgelaufen oder ungültig ist, kannst du im Dashboard unter **„Bot Settings“** auf **„Clear Microsoft Auth Cache“** klicken. Beim nächsten Klick auf *Connect* wird ein frischer Code für `microsoft.com/devicelogin` generiert.
+### Bot cannot connect to Microsoft account?
+If a token has expired, open the **"Bot Settings"** tab and click **"Clear Auth Cache"**. The next time you click **Connect**, a fresh device code will be requested.
 
-### Wo werden die Bot-Profile gespeichert?
-Alle konfigurierten Bots werden in der Datei `bots.json` im Projektverzeichnis gespeichert. Die Microsoft-Tokens liegen sicher isoliert pro Bot in `auth-cache/<botId>/`.
+### Where is bot data stored?
+Configured bot profiles are saved in `bots.json`. Microsoft login tokens are isolated per profile under `./auth-cache/<botId>/`. Both are ignored by Git via `.gitignore`.
 
 ---
 
 **Made by melonengolem** &middot; [GitHub: ldrnico](https://github.com/ldrnico)
-

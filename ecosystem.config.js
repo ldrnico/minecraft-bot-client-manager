@@ -6,7 +6,7 @@ module.exports = {
       instances: 1,
       autorestart: true,
       watch: false,
-      max_memory_restart: '650M', // Erhöht auf 650M für stabilen Multi-Bot Betrieb (1GB RAM + 2GB Swap)
+      max_memory_restart: '650M', // 650M threshold for stable multi-bot operation (1GB RAM + 2GB Swap)
       env: {
         NODE_ENV: 'production'
       }

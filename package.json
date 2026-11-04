@@ -1,7 +1,7 @@
 {
   "name": "minecraft-client-bot",
   "version": "1.0.0",
-  "description": "Leichtgewichtiger Headless Minecraft Client mit Web-Dashboard für Ubuntu Server (1GB RAM)",
+  "description": "Lightweight headless Minecraft client manager with modern web dashboard for Ubuntu Linux servers (1GB RAM)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

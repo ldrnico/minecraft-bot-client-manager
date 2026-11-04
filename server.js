@@ -7,7 +7,7 @@ const express = require('express');
 const WebSocket = require('ws');
 const mineflayer = require('mineflayer');
 
-// Prozess-Absicherung (verhindert, dass unerwartete Stream-Fehler Node.js beenden)
+// Process safety (prevents unexpected stream errors from crashing Node.js)
 process.on('uncaughtException', err => {
   console.error('[UNCAUGHT EXCEPTION]', err);
 });
@@ -15,11 +15,11 @@ process.on('unhandledRejection', reason => {
   console.error('[UNHANDLED REJECTION]', reason);
 });
 
-// Konfiguration & Ports
+// Configuration & Ports
 const PORT = process.env.WEB_PORT || 3000;
 const JWT_SECRET = process.env.WEB_SECRET || 'mc_bot_secret_' + (process.env.WEB_PASSWORD || 'secret123');
 
-// Dateipfade
+// File paths
 const ADMIN_FILE = path.join(__dirname, 'admin.json');
 const USERS_FILE = path.join(__dirname, 'users.json');
 const BOTS_FILE = path.join(__dirname, 'bots.json');
@@ -31,7 +31,7 @@ if (!fs.existsSync(AUTH_CACHE_BASE)) {
 }
 
 // -------------------------------------------------------------
-// 1. Admin-Authentifizierung & Kryptographie
+// 1. Admin Authentication & Cryptography
 // -------------------------------------------------------------
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');
@@ -50,7 +50,7 @@ function verifyPassword(password, salt, hash) {
 
 function createToken(payload) {
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-  // Token ist 14 Tage gültig
+  // Token is valid for 14 days
   const body = Buffer.from(JSON.stringify({ ...payload, exp: Date.now() + 14 * 24 * 60 * 60 * 1000 })).toString('base64url');
   const signature = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
   return `${header}.${body}.${signature}`;
@@ -78,11 +78,11 @@ function loadAdmin() {
       const data = JSON.parse(fs.readFileSync(ADMIN_FILE, 'utf8'));
       if (data && data.username && data.hash && data.salt) return data;
     } catch (e) {
-      console.error('Fehler beim Lesen von admin.json:', e.message);
+      console.error('Error reading admin.json:', e.message);
     }
   }
 
-  // Migration aus bestehender users.json, falls vorhanden
+  // Migration from existing users.json if present
   if (fs.existsSync(USERS_FILE)) {
     try {
       const users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
@@ -96,14 +96,14 @@ function loadAdmin() {
             updatedAt: found.createdAt || new Date().toISOString(),
           };
           saveAdmin(migrated);
-          console.log(`[AUTH] Admin-Account aus users.json nach admin.json migriert: "${migrated.username}"`);
+          console.log(`[AUTH] Admin account migrated from users.json to admin.json: "${migrated.username}"`);
           return migrated;
         }
       }
     } catch (_) {}
   }
 
-  // Initialer Admin aus .env oder Standard
+  // Initial admin from .env or default
   const username = process.env.WEB_USER || 'admin';
   const password = process.env.WEB_PASSWORD || 'admin123';
   const { salt, hash } = hashPassword(password);
@@ -116,7 +116,7 @@ function loadAdmin() {
   };
 
   saveAdmin(adminData);
-  console.log(`[AUTH] Admin-Account initialisiert: Benutzername "${username}"`);
+  console.log(`[AUTH] Admin account initialized: username "${username}"`);
   return adminData;
 }
 
@@ -124,14 +124,14 @@ function saveAdmin(data) {
   try {
     fs.writeFileSync(ADMIN_FILE, JSON.stringify(data, null, 2), 'utf8');
   } catch (e) {
-    console.error('Fehler beim Speichern von admin.json:', e.message);
+    console.error('Error saving admin.json:', e.message);
   }
 }
 
 let adminAccount = loadAdmin();
 
 // -------------------------------------------------------------
-// 2. Minecraft Bot Profile & Datenhaltung
+// 2. Minecraft Bot Profiles & Data Persistence
 // -------------------------------------------------------------
 const DEFAULT_BOT_SETTINGS = {
   name: 'Bot 1',
@@ -155,11 +155,11 @@ function loadBotConfigs() {
       const data = JSON.parse(fs.readFileSync(BOTS_FILE, 'utf8'));
       if (Array.isArray(data)) return data;
     } catch (e) {
-      console.error('Fehler beim Lesen von bots.json:', e.message);
+      console.error('Error reading bots.json:', e.message);
     }
   }
 
-  // Beim ersten Start existiert standardmäßig noch kein Bot
+  // On initial startup, no default bot profile is created
   return [];
 }
 
@@ -167,11 +167,11 @@ function saveBotConfigs(bots) {
   try {
     fs.writeFileSync(BOTS_FILE, JSON.stringify(bots, null, 2), 'utf8');
   } catch (e) {
-    console.error('Fehler beim Speichern von bots.json:', e.message);
+    console.error('Error saving bots.json:', e.message);
   }
 }
 
-// Hilfsfunktion: Minecraft Chat-Komponenten / Kicks sauber als Klartext parsen
+// Helper: parse Minecraft chat components and kick messages cleanly into plain text
 function parseMinecraftChat(data) {
   if (!data) return '';
   if (typeof data === 'string') {
@@ -205,7 +205,7 @@ function parseMinecraftChat(data) {
 }
 
 // -------------------------------------------------------------
-// 3. BotInstance Klasse (Vollständige Mineflayer-Kapselung)
+// 3. BotInstance Class (Mineflayer Encapsulation)
 // -------------------------------------------------------------
 class BotInstance {
   constructor(config, onBroadcast) {
@@ -228,7 +228,7 @@ class BotInstance {
     this.msaCodeInfo = null;
     this.antiAfkTimer = null;
 
-    // Eigener Microsoft Cache-Ordner pro Bot-Profil
+    // Isolated Microsoft token cache folder per bot profile
     this.profileAuthFolder = path.join(AUTH_CACHE_BASE, this.id);
     if (!fs.existsSync(this.profileAuthFolder)) {
       fs.mkdirSync(this.profileAuthFolder, { recursive: true });
@@ -236,7 +236,7 @@ class BotInstance {
   }
 
   addLog(type, message) {
-    const timeStr = new Date().toLocaleTimeString('de-DE');
+    const timeStr = new Date().toLocaleTimeString('en-US');
     const entry = { timestamp: timeStr, type, message };
     this.logHistory.push(entry);
     if (this.logHistory.length > 200) {
@@ -264,7 +264,7 @@ class BotInstance {
         host: this.config.host,
         port: this.config.port,
         username: this.config.username,
-        version: this.config.version || 'Automatisch',
+        version: this.config.version || 'Auto',
       },
       fullConfig: this.getFullConfig(),
     };
@@ -370,7 +370,7 @@ class BotInstance {
     this.stopAntiAfkLoop();
     if (this.config.antiAfk === false) return;
 
-    // Alle 45 Sekunden den Arm schwingen (resettet Inaktivitäts-/AFK-Timer auf Paper/Spigot)
+    // Swing arm every 45 seconds (resets inactivity/AFK timer on Paper/Spigot servers)
     this.antiAfkTimer = setInterval(() => {
       if (this.bot && this.status === 'online') {
         try {
@@ -652,7 +652,7 @@ class BotInstance {
     this.msaCodeInfo = null;
     this.status = 'disconnected';
     this.broadcastState();
-    this.addLog('info', 'Bot wurde manuell gestoppt.');
+    this.addLog('info', 'Bot stopped manually.');
   }
 
   chat(message) {
@@ -660,12 +660,12 @@ class BotInstance {
     if (this.bot && this.status === 'online') {
       try {
         this.bot.chat(message.trim());
-        this.addLog('command', `Gesendet: ${message.trim()}`);
+        this.addLog('command', `Sent: ${message.trim()}`);
       } catch (err) {
-        this.addLog('error', `Fehler beim Senden: ${err.message}`);
+        this.addLog('error', `Error sending command: ${err.message}`);
       }
     } else {
-      this.addLog('warn', `Befehl konnte nicht gesendet werden: Bot ist nicht online.`);
+      this.addLog('warn', `Cannot send command: bot is not online.`);
     }
   }
 
@@ -676,9 +676,9 @@ class BotInstance {
         setTimeout(() => {
           if (this.bot) this.bot.setControlState('jump', false);
         }, 350);
-        this.addLog('system', '🦘 Sprung ausgeführt.');
+        this.addLog('system', '🦘 Jump executed.');
       } catch (err) {
-        this.addLog('error', `Fehler beim Springen: ${err.message}`);
+        this.addLog('error', `Error executing jump: ${err.message}`);
       }
     }
   }
@@ -688,16 +688,16 @@ class BotInstance {
     if (this.bot && this.status === 'online') {
       try {
         this.bot.setControlState('sneak', this.isSneaking);
-        this.addLog('system', `👟 Sneak ${this.isSneaking ? 'aktiviert' : 'deaktiviert'}.`);
+        this.addLog('system', `👟 Sneak ${this.isSneaking ? 'enabled' : 'disabled'}.`);
       } catch (err) {
-        this.addLog('error', `Fehler bei Sneak: ${err.message}`);
+        this.addLog('error', `Error toggling sneak: ${err.message}`);
       }
     }
   }
 
   toggleAutoReconnect(enabled) {
     this.config.autoReconnect = !!enabled;
-    this.addLog('system', `Auto-Rejoin wurde ${this.config.autoReconnect ? 'AKTIVIERT' : 'DEAKTIVIERT'}.`);
+    this.addLog('system', `Auto-rejoin ${this.config.autoReconnect ? 'ENABLED' : 'DISABLED'}.`);
     if (!this.config.autoReconnect && this.status === 'reconnecting') {
       if (this.reconnectTimer) {
         clearTimeout(this.reconnectTimer);
@@ -712,7 +712,7 @@ class BotInstance {
 
   togglePeriodicReconnect(enabled) {
     this.config.periodicReconnect = !!enabled;
-    this.addLog('system', `Periodischer 30-Minuten-Reconnect wurde ${this.config.periodicReconnect ? 'AKTIVIERT' : 'DEAKTIVIERT'}.`);
+    this.addLog('system', `Periodic reconnect ${this.config.periodicReconnect ? 'ENABLED' : 'DISABLED'}.`);
     if (this.config.periodicReconnect && this.status === 'online') {
       this.startPeriodicReconnect(true);
     } else {
@@ -755,7 +755,7 @@ class BotInstance {
 }
 
 // -------------------------------------------------------------
-// 4. Bot-Manager & Multi-Bot Registry
+// 4. Bot Manager & Multi-Bot Registry
 // -------------------------------------------------------------
 class BotManager {
   constructor() {
@@ -772,9 +772,9 @@ class BotManager {
       this.botInstances.set(cfg.id, instance);
     });
 
-    console.log(`[BOTS] ${this.botInstances.size} Bot-Profil(e) geladen.`);
+    console.log(`[BOTS] ${this.botInstances.size} bot profile(s) loaded.`);
 
-    // Alle Bots mit autoReconnect beim Start hochfahren
+    // Start all bots configured with autoReconnect
     this.botInstances.forEach(bot => {
       if (bot.config.autoReconnect !== false) {
         bot.start();
@@ -833,7 +833,7 @@ class BotManager {
     this.botInstances.delete(id);
     this.persistAll();
 
-    // Cache-Verzeichnis aufräumen
+    // Clean up auth cache folder
     try {
       if (fs.existsSync(bot.profileAuthFolder)) {
         fs.rmSync(bot.profileAuthFolder, { recursive: true, force: true });
@@ -887,7 +887,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
   }
 }));
 
-// Auth Middleware für REST
+// Authentication Middleware for REST API
 function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
   let token = null;
@@ -899,12 +899,12 @@ function authMiddleware(req, res, next) {
   }
 
   if (!token) {
-    return res.status(401).json({ error: 'Nicht authentifiziert' });
+    return res.status(401).json({ error: 'Not authenticated' });
   }
 
   const payload = verifyToken(token);
   if (!payload) {
-    return res.status(401).json({ error: 'Ungültige oder abgelaufene Sitzung' });
+    return res.status(401).json({ error: 'Invalid or expired session' });
   }
 
   req.user = payload;
@@ -912,21 +912,21 @@ function authMiddleware(req, res, next) {
 }
 
 // -------------------------------------------------------------
-// 6. REST API Endpunkte
+// 6. REST API Endpoints
 // -------------------------------------------------------------
 
 // Login
 app.post('/api/auth/login', (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
-    return res.status(400).json({ error: 'Benutzername und Passwort sind erforderlich' });
+    return res.status(400).json({ error: 'Username and password are required' });
   }
 
   if (
     username.toLowerCase() !== adminAccount.username.toLowerCase() ||
     !verifyPassword(password, adminAccount.salt, adminAccount.hash)
   ) {
-    return res.status(401).json({ error: 'Ungültige Anmeldedaten' });
+    return res.status(401).json({ error: 'Invalid login credentials' });
   }
 
   const token = createToken({
@@ -942,7 +942,7 @@ app.post('/api/auth/login', (req, res) => {
   });
 });
 
-// Admin-Benutzerdaten & alle Bots abrufen
+// Get admin profile & list of all bots
 app.get('/api/auth/me', authMiddleware, (req, res) => {
   res.json({
     user: {
@@ -952,15 +952,15 @@ app.get('/api/auth/me', authMiddleware, (req, res) => {
   });
 });
 
-// Admin-Passwort ändern
+// Change admin password
 app.post('/api/auth/change-password', authMiddleware, (req, res) => {
   const { currentPassword, newPassword } = req.body;
   if (!newPassword || newPassword.length < 4) {
-    return res.status(400).json({ error: 'Das neue Passwort muss mindestens 4 Zeichen lang sein' });
+    return res.status(400).json({ error: 'New password must be at least 4 characters long' });
   }
 
   if (!verifyPassword(currentPassword, adminAccount.salt, adminAccount.hash)) {
-    return res.status(400).json({ error: 'Das aktuelle Passwort ist nicht korrekt' });
+    return res.status(400).json({ error: 'Current password is incorrect' });
   }
 
   const { salt, hash } = hashPassword(newPassword);
@@ -969,23 +969,23 @@ app.post('/api/auth/change-password', authMiddleware, (req, res) => {
   adminAccount.updatedAt = new Date().toISOString();
   saveAdmin(adminAccount);
 
-  console.log(`[AUTH] Admin-Passwort für "${adminAccount.username}" erfolgreich geändert.`);
-  res.json({ success: true, message: 'Passwort erfolgreich geändert' });
+  console.log(`[AUTH] Admin password for "${adminAccount.username}" changed successfully.`);
+  res.json({ success: true, message: 'Password updated successfully' });
 });
 
-// --- BOT PROFIL ENDPUNKTE ---
+// --- BOT PROFILE ENDPOINTS ---
 
-// Alle Bots auflisten
+// List all bot profiles
 app.get('/api/bots', authMiddleware, (req, res) => {
   res.json({ success: true, bots: botManager.getAllBots() });
 });
 
-// Neues Bot-Profil anlegen
+// Create new bot profile
 app.post('/api/bots', authMiddleware, (req, res) => {
   const { name, host, port, username, version, onJoinCommands } = req.body;
 
   if (!host || !username) {
-    return res.status(400).json({ error: 'Server-Host und Minecraft-Name sind Pflichtfelder' });
+    return res.status(400).json({ error: 'Server host and Minecraft player name are required' });
   }
 
   const commandsArray = Array.isArray(onJoinCommands)
@@ -1012,19 +1012,19 @@ app.post('/api/bots', authMiddleware, (req, res) => {
   res.json({ success: true, bot: botInstance.getState() });
 });
 
-// Einzelnes Bot-Profil löschen
+// Delete bot profile
 app.delete('/api/bots/:id', authMiddleware, (req, res) => {
   const success = botManager.deleteBot(req.params.id);
   if (!success) {
-    return res.status(404).json({ error: 'Bot-Profil nicht gefunden' });
+    return res.status(404).json({ error: 'Bot profile not found' });
   }
-  res.json({ success: true, message: 'Bot-Profil erfolgreich gelöscht' });
+  res.json({ success: true, message: 'Bot profile deleted successfully' });
 });
 
-// Einstellungen eines Bots aktualisieren
+// Update bot settings
 app.post('/api/bots/:id/config', authMiddleware, (req, res) => {
   const bot = botManager.getBot(req.params.id);
-  if (!bot) return res.status(404).json({ error: 'Bot nicht gefunden' });
+  if (!bot) return res.status(404).json({ error: 'Bot profile not found' });
 
   let joinCommands = bot.config.onJoinCommands;
   if (req.body.onJoinCommandsInput !== undefined) {
@@ -1053,10 +1053,10 @@ app.post('/api/bots/:id/config', authMiddleware, (req, res) => {
   res.json({ success: true, bot: bot.getState() });
 });
 
-// Aktionen auf einem Bot ausführen
+// Execute bot action
 app.post('/api/bots/:id/action/:action', authMiddleware, (req, res) => {
   const bot = botManager.getBot(req.params.id);
-  if (!bot) return res.status(404).json({ error: 'Bot nicht gefunden' });
+  if (!bot) return res.status(404).json({ error: 'Bot profile not found' });
 
   const { action } = req.params;
   switch (action) {
@@ -1103,7 +1103,7 @@ app.post('/api/bots/:id/action/:action', authMiddleware, (req, res) => {
 });
 
 // -------------------------------------------------------------
-// 7. WebSocket Live-Synchronisation
+// 7. WebSocket Live Synchronization
 // -------------------------------------------------------------
 function broadcastToClients(action, botId, data) {
   const msgStr = JSON.stringify({ action, botId, data });
@@ -1127,7 +1127,7 @@ wss.on('connection', (ws, req) => {
   const user = verifyToken(token);
 
   if (!user) {
-    ws.send(JSON.stringify({ action: 'auth_error', message: 'Ungültiges oder fehlendes Token' }));
+    ws.send(JSON.stringify({ action: 'auth_error', message: 'Invalid or missing authentication token' }));
     ws.close();
     return;
   }
@@ -1139,7 +1139,7 @@ wss.on('connection', (ws, req) => {
 
   const activeBot = firstBotId ? botManager.botInstances.get(firstBotId) : null;
 
-  // Init-Paket senden
+  // Send initial state payload
   ws.send(
     JSON.stringify({
       action: 'init',
@@ -1192,21 +1192,21 @@ wss.on('connection', (ws, req) => {
         targetBot.chat(msg.command);
       }
     } catch (e) {
-      console.error('Fehler bei WS-Nachricht:', e.message);
+      console.error('WebSocket message error:', e.message);
     }
   });
 });
 
 // -------------------------------------------------------------
-// 8. Server-Start & Bot-Initialisierung
+// 8. Server Startup & Bot Initialization
 // -------------------------------------------------------------
 server.listen(PORT, () => {
   console.log(`====================================================`);
-  console.log(` Minecraft Client Manager läuft auf Port ${PORT}`);
-  console.log(` Web-Zugriff: http://localhost:${PORT}`);
+  console.log(` Minecraft Client Manager running on port ${PORT}`);
+  console.log(` Web Access: http://localhost:${PORT}`);
   console.log(`====================================================`);
 
-  // Bots laden und starten
+  // Load and initialize bots
   botManager.init((action, botId, data) => {
     broadcastToClients(action, botId, data);
   });
