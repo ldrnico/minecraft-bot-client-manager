@@ -92,6 +92,10 @@
         <span id="botName" class="info-value">...</span>
       </div>
       <div class="info-item">
+        <span class="info-label">Route</span>
+        <span id="infoRoute" class="info-value">Direct</span>
+      </div>
+      <div class="info-item">
         <span class="info-label">Version</span>
         <span id="mcVersion" class="info-value">Automatic</span>
       </div>
@@ -101,6 +105,7 @@
     <nav class="tabs-nav">
       <button class="tab-btn active" data-tab="tabDashboard">Dashboard</button>
       <button class="tab-btn" data-tab="tabSettings">Bot Settings</button>
+      <button class="tab-btn" data-tab="tabProxies">Proxy Pool</button>
       <button class="tab-btn" data-tab="tabAccount">Change Password</button>
     </nav>
 
@@ -246,6 +251,15 @@
               <label for="cfgReconnectDelaySec">Reconnect Delay after Kick (s)</label>
               <input type="number" id="cfgReconnectDelaySec" min="1" max="300" />
             </div>
+
+            <div class="form-group full-width">
+              <label for="cfgProxySelect">Routing / SOCKS5 Proxy</label>
+              <select id="cfgProxySelect" class="form-select">
+                <option value="direct">Direct Connection (Server IP / No Proxy)</option>
+                <option value="random">Random Proxy from Pool</option>
+              </select>
+              <small class="form-hint">Assign a proxy from your Proxy Pool to give this bot an isolated IP address.</small>
+            </div>
           </div>
 
           <div class="form-section-title">Automation</div>
@@ -292,7 +306,48 @@
       </section>
     </div>
 
-    <!-- TAB 3: CHANGE PASSWORD -->
+    <!-- TAB 3: PROXY POOL -->
+    <div id="tabProxies" class="tab-content">
+      <section class="card settings-card">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h2 class="card-title">Proxy Pool Manager</h2>
+            <p class="card-subtitle">Manage SOCKS5 proxies to assign distinct IPs to your Minecraft accounts and bypass AFK limits.</p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn btn-ghost btn-sm" id="btnTestAllProxies">⚡ Test All</button>
+            <button type="button" class="btn btn-primary btn-sm" id="btnOpenAddProxyModal">+ Add Proxy</button>
+          </div>
+        </div>
+
+        <div id="proxyFeedback" class="alert-box" style="display: none; margin: 16px 0;"></div>
+
+        <div class="table-responsive" style="margin-top: 14px;">
+          <table class="data-table" id="proxyTable">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Proxy Label</th>
+                <th>Address</th>
+                <th>Auth</th>
+                <th>Ping</th>
+                <th style="text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="proxyTableBody">
+              <!-- Populated via JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <div id="emptyProxyState" class="empty-state" style="display: none; padding: 40px 20px; text-align: center;">
+          <p style="color: var(--text-muted); margin-bottom: 14px;">No SOCKS5 proxies added yet. Bots are currently connecting using the host server's direct IP.</p>
+          <button type="button" class="btn btn-ghost btn-sm" id="btnEmptyAddProxy">+ Add Your First SOCKS5 Proxy</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- TAB 4: CHANGE PASSWORD -->
     <div id="tabAccount" class="tab-content">
       <section class="card account-card">
         <h2 class="card-title">Change Password</h2>
@@ -361,9 +416,66 @@
           <input type="text" id="newBotCommands" />
         </div>
 
+        <div class="form-group">
+          <label for="newBotProxy">Proxy / Route</label>
+          <select id="newBotProxy" class="form-select">
+            <option value="direct">Direct Connection (Server IP / No Proxy)</option>
+            <option value="random">Random Proxy from Pool</option>
+          </select>
+        </div>
+
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="btnCancelCreateBot">Cancel</button>
           <button type="submit" class="btn btn-primary">Create Profile</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD PROXY -->
+  <div id="modalAddProxy" class="modal-backdrop" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Add SOCKS5 Proxy</h3>
+        <button class="modal-close" id="btnCloseAddProxyModal">&times;</button>
+      </div>
+      <form id="formAddProxy">
+        <div class="form-group">
+          <label for="proxyQuickImport">Quick Import (optional)</label>
+          <input type="text" id="proxyQuickImport" placeholder="e.g. 1.2.3.4:1080 or 1.2.3.4:1080:user:pass" />
+          <small class="form-hint">Paste an IP:Port string to automatically fill the fields below.</small>
+        </div>
+
+        <div class="form-group">
+          <label for="newProxyName">Proxy Label / Name</label>
+          <input type="text" id="newProxyName" placeholder="e.g. Frankfurt SOCKS5" required />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group" style="flex: 2;">
+            <label for="newProxyHost">Host / IP</label>
+            <input type="text" id="newProxyHost" placeholder="e.g. 185.220.101.5" required />
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label for="newProxyPort">Port</label>
+            <input type="number" id="newProxyPort" value="1080" min="1" max="65535" required />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group" style="flex: 1;">
+            <label for="newProxyUser">Username (optional)</label>
+            <input type="text" id="newProxyUser" autocomplete="off" />
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label for="newProxyPass">Password (optional)</label>
+            <input type="password" id="newProxyPass" autocomplete="new-password" />
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="btnCancelAddProxy">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Proxy</button>
         </div>
       </form>
     </div>

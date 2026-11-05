@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const express = require('express');
 const WebSocket = require('ws');
 const mineflayer = require('mineflayer');
+const { SocksClient } = require('socks');
 
 // Process safety (prevents unexpected stream errors from crashing Node.js)
 process.on('uncaughtException', err => {
@@ -23,6 +24,7 @@ const JWT_SECRET = process.env.WEB_SECRET || 'mc_bot_secret_' + (process.env.WEB
 const ADMIN_FILE = path.join(__dirname, 'admin.json');
 const USERS_FILE = path.join(__dirname, 'users.json');
 const BOTS_FILE = path.join(__dirname, 'bots.json');
+const PROXIES_FILE = path.join(__dirname, 'proxies.json');
 const LEGACY_CONFIG_FILE = path.join(__dirname, 'config.json');
 const AUTH_CACHE_BASE = path.join(__dirname, 'auth-cache');
 
@@ -131,7 +133,127 @@ function saveAdmin(data) {
 let adminAccount = loadAdmin();
 
 // -------------------------------------------------------------
-// 2. Minecraft Bot Profiles & Data Persistence
+// 2. Proxy Pool Management (SOCKS5)
+// -------------------------------------------------------------
+function loadProxies() {
+  if (fs.existsSync(PROXIES_FILE)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(PROXIES_FILE, 'utf8'));
+      if (Array.isArray(data)) return data;
+    } catch (e) {
+      console.error('Error reading proxies.json:', e.message);
+    }
+  }
+  return [];
+}
+
+function saveProxies(proxies) {
+  try {
+    fs.writeFileSync(PROXIES_FILE, JSON.stringify(proxies, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error saving proxies.json:', e.message);
+  }
+}
+
+class ProxyManager {
+  constructor() {
+    this.proxies = loadProxies();
+  }
+
+  getAll() {
+    return this.proxies.map(p => ({
+      id: p.id,
+      name: p.name,
+      host: p.host,
+      port: p.port,
+      username: p.username || '',
+      hasAuth: !!(p.username && p.password),
+      type: p.type || 5,
+      createdAt: p.createdAt,
+    }));
+  }
+
+  get(id) {
+    return this.proxies.find(p => p.id === id) || null;
+  }
+
+  create(data) {
+    const id = 'proxy_' + crypto.randomBytes(4).toString('hex');
+    const newProxy = {
+      id,
+      name: data.name || `${data.host}:${data.port}`,
+      host: String(data.host).trim(),
+      port: parseInt(data.port, 10) || 1080,
+      username: data.username ? String(data.username).trim() : '',
+      password: data.password ? String(data.password).trim() : '',
+      type: 5,
+      createdAt: new Date().toISOString(),
+    };
+    this.proxies.push(newProxy);
+    saveProxies(this.proxies);
+    return newProxy;
+  }
+
+  delete(id) {
+    const index = this.proxies.findIndex(p => p.id === id);
+    if (index === -1) return false;
+    this.proxies.splice(index, 1);
+    saveProxies(this.proxies);
+    return true;
+  }
+
+  async testProxy(proxyOrId) {
+    const proxy = typeof proxyOrId === 'string' ? this.get(proxyOrId) : proxyOrId;
+    if (!proxy) return { success: false, error: 'Proxy not found' };
+
+    const startTime = Date.now();
+    return new Promise(resolve => {
+      // Connect to 1.1.1.1:53 via SOCKS5 as a lightweight TCP ping
+      SocksClient.createConnection(
+        {
+          proxy: {
+            host: proxy.host,
+            port: parseInt(proxy.port, 10),
+            type: proxy.type || 5,
+            userId: proxy.username || undefined,
+            password: proxy.password || undefined,
+          },
+          command: 'connect',
+          destination: {
+            host: '1.1.1.1',
+            port: 53,
+          },
+          timeout: 5000,
+        },
+        (err, info) => {
+          if (err) {
+            resolve({
+              success: false,
+              id: proxy.id,
+              error: err.message,
+              latencyMs: null,
+            });
+          } else {
+            const latencyMs = Date.now() - startTime;
+            try {
+              info.socket.destroy();
+            } catch (_) {}
+            resolve({
+              success: true,
+              id: proxy.id,
+              latencyMs,
+            });
+          }
+        }
+      );
+    });
+  }
+}
+
+const proxyManager = new ProxyManager();
+
+// -------------------------------------------------------------
+// 3. Minecraft Bot Profiles & Data Persistence
 // -------------------------------------------------------------
 const DEFAULT_BOT_SETTINGS = {
   name: 'Bot 1',
@@ -139,6 +261,7 @@ const DEFAULT_BOT_SETTINGS = {
   port: 25565,
   username: '',
   version: '',
+  proxyId: 'direct', // 'direct' | 'random' | 'proxy_xxx'
   autoReconnect: false,
   reconnectDelaySec: 10,
   onJoinCommands: [],
@@ -250,11 +373,24 @@ class BotInstance {
   }
 
   getState() {
+    let resolvedProxy = null;
+    const proxyId = this.config.proxyId || 'direct';
+    if (proxyId === 'random') {
+      resolvedProxy = { id: 'random', name: 'Random Pool Proxy' };
+    } else if (proxyId !== 'direct') {
+      const p = proxyManager.get(proxyId);
+      if (p) {
+        resolvedProxy = { id: p.id, name: p.name, host: p.host, port: p.port };
+      }
+    }
+
     return {
       id: this.id,
       name: this.name,
       botStatus: this.status,
       msaCode: this.msaCodeInfo,
+      proxyId,
+      proxyInfo: resolvedProxy,
       autoReconnect: this.config.autoReconnect !== false,
       antiAfk: this.config.antiAfk !== false,
       periodicReconnect: this.config.periodicReconnect !== false,
@@ -279,6 +415,7 @@ class BotInstance {
       username: this.config.username,
       auth: 'microsoft',
       version: this.config.version || '',
+      proxyId: this.config.proxyId || 'direct',
       reconnectDelaySec: this.config.reconnectDelaySec ?? 10,
       onJoinDelaySec: this.config.onJoinDelaySec ?? 3,
       onJoinCommands: Array.isArray(this.config.onJoinCommands) ? this.config.onJoinCommands.join(', ') : '',
@@ -406,6 +543,27 @@ class BotInstance {
       return;
     }
 
+    // Determine SOCKS5 proxy routing
+    let activeProxy = null;
+    const configuredProxyId = this.config.proxyId || 'direct';
+
+    if (configuredProxyId === 'random') {
+      const pool = proxyManager.proxies;
+      if (pool.length > 0) {
+        activeProxy = pool[Math.floor(Math.random() * pool.length)];
+        this.addLog('system', `🎲 Selected random proxy from pool: "${activeProxy.name}" (${activeProxy.host}:${activeProxy.port})`);
+      } else {
+        this.addLog('warn', '⚠️ Proxy mode is "Random", but Proxy Pool is empty! Connecting directly.');
+      }
+    } else if (configuredProxyId !== 'direct') {
+      activeProxy = proxyManager.get(configuredProxyId);
+      if (activeProxy) {
+        this.addLog('system', `🛡️ Routing connection via SOCKS5 proxy "${activeProxy.name}" (${activeProxy.host}:${activeProxy.port})...`);
+      } else {
+        this.addLog('warn', `⚠️ Configured proxy (${configuredProxyId}) not found! Connecting directly.`);
+      }
+    }
+
     this.status = 'connecting';
     this.broadcastState();
     this.addLog('system', `Connecting to ${this.config.host}:${this.config.port} as ${this.config.username} (Microsoft Account)...`);
@@ -458,6 +616,37 @@ class BotInstance {
         }, expiresInSec * 1000);
       },
     };
+
+    if (activeProxy) {
+      botOptions.connect = (client) => {
+        SocksClient.createConnection(
+          {
+            proxy: {
+              host: activeProxy.host,
+              port: parseInt(activeProxy.port, 10),
+              type: activeProxy.type || 5,
+              userId: activeProxy.username || undefined,
+              password: activeProxy.password || undefined,
+            },
+            command: 'connect',
+            destination: {
+              host: this.config.host,
+              port: parseInt(this.config.port, 10) || 25565,
+            },
+            timeout: 15000,
+          },
+          (err, info) => {
+            if (err) {
+              this.addLog('error', `❌ SOCKS5 proxy connection failed (${activeProxy.name}): ${err.message}`);
+              client.emit('error', new Error(`Proxy error: ${err.message}`));
+              return;
+            }
+            client.setSocket(info.socket);
+            client.emit('connect');
+          }
+        );
+      };
+    }
 
     if (this.config.version && this.config.version.trim() !== '') {
       botOptions.version = this.config.version.trim();
@@ -727,6 +916,7 @@ class BotInstance {
     if (newConfig.port) this.config.port = parseInt(newConfig.port, 10) || 25565;
     if (newConfig.username) this.config.username = newConfig.username;
     if (newConfig.version !== undefined) this.config.version = newConfig.version;
+    if (newConfig.proxyId !== undefined) this.config.proxyId = newConfig.proxyId;
     if (newConfig.reconnectDelaySec !== undefined) this.config.reconnectDelaySec = parseInt(newConfig.reconnectDelaySec, 10) || 10;
     if (newConfig.onJoinCommands !== undefined) this.config.onJoinCommands = newConfig.onJoinCommands;
     if (newConfig.onJoinDelaySec !== undefined) this.config.onJoinDelaySec = parseInt(newConfig.onJoinDelaySec, 10) || 3;
@@ -791,6 +981,7 @@ class BotManager {
         host: b.config.host,
         port: b.config.port,
         username: b.config.username,
+        proxyId: b.config.proxyId || 'direct',
         status: b.status,
       });
     });
@@ -853,6 +1044,7 @@ class BotManager {
         port: b.config.port,
         username: b.config.username,
         version: b.config.version,
+        proxyId: b.config.proxyId || 'direct',
         autoReconnect: b.config.autoReconnect !== false,
         reconnectDelaySec: b.config.reconnectDelaySec ?? 10,
         onJoinCommands: b.config.onJoinCommands,
@@ -1003,6 +1195,7 @@ app.post('/api/bots', authMiddleware, (req, res) => {
     port: parseInt(port, 10) || 25565,
     username: username.trim(),
     version: version ? version.trim() : '',
+    proxyId: req.body.proxyId || 'direct',
     onJoinCommands: commandsArray,
     autoReconnect: req.body.autoReconnect !== false,
     periodicReconnect: req.body.periodicReconnect !== false,
@@ -1040,6 +1233,7 @@ app.post('/api/bots/:id/config', authMiddleware, (req, res) => {
     port: req.body.port,
     username: req.body.username,
     version: req.body.version,
+    proxyId: req.body.proxyId,
     reconnectDelaySec: req.body.reconnectDelaySec,
     onJoinCommands: joinCommands,
     onJoinDelaySec: req.body.onJoinDelaySec,
@@ -1102,6 +1296,57 @@ app.post('/api/bots/:id/action/:action', authMiddleware, (req, res) => {
   res.json({ success: true });
 });
 
+// --- PROXY POOL ENDPOINTS ---
+
+// List all proxies
+app.get('/api/proxies', authMiddleware, (req, res) => {
+  res.json({ success: true, proxies: proxyManager.getAll() });
+});
+
+// Add a proxy to the pool
+app.post('/api/proxies', authMiddleware, (req, res) => {
+  const { name, host, port, username, password } = req.body;
+  if (!host || !port) {
+    return res.status(400).json({ error: 'Proxy host and port are required' });
+  }
+
+  const newProxy = proxyManager.create({ name, host, port, username, password });
+  res.json({ success: true, proxy: newProxy });
+});
+
+// Delete a proxy from the pool
+app.delete('/api/proxies/:id', authMiddleware, (req, res) => {
+  const { id } = req.params;
+  const deleted = proxyManager.delete(id);
+  if (!deleted) {
+    return res.status(404).json({ error: 'Proxy not found' });
+  }
+
+  // Update any bots using this proxy to 'direct'
+  botManager.botInstances.forEach(bot => {
+    if (bot.config.proxyId === id) {
+      bot.config.proxyId = 'direct';
+      bot.broadcastState();
+    }
+  });
+  botManager.persistAll();
+
+  res.json({ success: true, message: 'Proxy deleted successfully' });
+});
+
+// Test a single proxy
+app.post('/api/proxies/:id/test', authMiddleware, async (req, res) => {
+  const result = await proxyManager.testProxy(req.params.id);
+  res.json(result);
+});
+
+// Test all proxies in pool
+app.post('/api/proxies/test-all', authMiddleware, async (req, res) => {
+  const list = proxyManager.proxies;
+  const results = await Promise.all(list.map(p => proxyManager.testProxy(p)));
+  res.json({ success: true, results });
+});
+
 // -------------------------------------------------------------
 // 7. WebSocket Live Synchronization
 // -------------------------------------------------------------
@@ -1147,6 +1392,7 @@ wss.on('connection', (ws, req) => {
         username: adminAccount.username,
       },
       bots: availableBots,
+      proxies: proxyManager.getAll(),
       activeBotId: firstBotId,
       botData: activeBot
         ? {

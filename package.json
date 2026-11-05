@@ -13,6 +13,7 @@
     "minecraft-data": "latest",
     "minecraft-protocol": "latest",
     "mineflayer": "latest",
+    "socks": "^2.8.10",
     "ws": "^8.18.0"
   }
 }

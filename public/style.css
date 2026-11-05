@@ -337,7 +337,7 @@ select.bot-dropdown:focus {
    ========================================================== */
 .info-bar {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -351,7 +351,7 @@ select.bot-dropdown:focus {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  padding: 16px 22px;
+  padding: 14px 18px;
   background: transparent;
   border-right: 1px solid var(--border);
   transition: background 0.18s ease;
@@ -1351,4 +1351,37 @@ select option {
 .dashboard-footer a:hover {
   color: var(--primary);
   text-decoration: underline;
+}
+
+/* Proxy Pool & Status Dots */
+.dot-green { background: var(--primary) !important; box-shadow: 0 0 8px rgba(34, 197, 94, 0.4); }
+.dot-red { background: var(--danger) !important; box-shadow: 0 0 8px rgba(239, 68, 68, 0.4); }
+.dot-yellow { background: var(--warning) !important; box-shadow: 0 0 8px rgba(245, 158, 11, 0.4); }
+.dot-gray { background: var(--text-faint) !important; }
+
+.badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.badge-primary {
+  background: var(--primary-soft);
+  color: var(--primary);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+.badge-ghost {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+@keyframes pulse-anim {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+.animate-pulse {
+  animation: pulse-anim 1.2s infinite ease-in-out;
 }

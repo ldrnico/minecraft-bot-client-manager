@@ -2,6 +2,8 @@
 let authToken = localStorage.getItem('mc_token') || null;
 let currentUser = null;
 let availableBots = [];
+let availableProxies = [];
+let proxyTestResults = {};
 let activeBotId = null;
 let activeBotData = null;
 let nextPeriodicReconnectTimestamp = null;
@@ -28,6 +30,7 @@ const statusText = document.getElementById('statusText');
 const infoProfileName = document.getElementById('infoProfileName');
 const targetServer = document.getElementById('targetServer');
 const botName = document.getElementById('botName');
+const infoRoute = document.getElementById('infoRoute');
 const mcVersion = document.getElementById('mcVersion');
 
 // DOM Elements: Dashboard Controls
@@ -70,6 +73,7 @@ const cfgOnJoinDelaySec = document.getElementById('cfgOnJoinDelaySec');
 const cfgPeriodicIntervalMin = document.getElementById('cfgPeriodicIntervalMin');
 const cfgEnablePhysics = document.getElementById('cfgEnablePhysics');
 const cfgAntiAfk = document.getElementById('cfgAntiAfk');
+const cfgProxySelect = document.getElementById('cfgProxySelect');
 const btnClearAuthCache = document.getElementById('btnClearAuthCache');
 const btnDeleteCurrentBot = document.getElementById('btnDeleteCurrentBot');
 
@@ -78,6 +82,25 @@ const modalCreateBot = document.getElementById('modalCreateBot');
 const btnCloseCreateBotModal = document.getElementById('btnCloseCreateBotModal');
 const btnCancelCreateBot = document.getElementById('btnCancelCreateBot');
 const formCreateBot = document.getElementById('formCreateBot');
+const newBotProxy = document.getElementById('newBotProxy');
+
+// DOM Elements: Proxy Pool
+const proxyTableBody = document.getElementById('proxyTableBody');
+const emptyProxyState = document.getElementById('emptyProxyState');
+const proxyFeedback = document.getElementById('proxyFeedback');
+const btnOpenAddProxyModal = document.getElementById('btnOpenAddProxyModal');
+const btnEmptyAddProxy = document.getElementById('btnEmptyAddProxy');
+const btnCloseAddProxyModal = document.getElementById('btnCloseAddProxyModal');
+const btnCancelAddProxy = document.getElementById('btnCancelAddProxy');
+const modalAddProxy = document.getElementById('modalAddProxy');
+const formAddProxy = document.getElementById('formAddProxy');
+const proxyQuickImport = document.getElementById('proxyQuickImport');
+const newProxyName = document.getElementById('newProxyName');
+const newProxyHost = document.getElementById('newProxyHost');
+const newProxyPort = document.getElementById('newProxyPort');
+const newProxyUser = document.getElementById('newProxyUser');
+const newProxyPass = document.getElementById('newProxyPass');
+const btnTestAllProxies = document.getElementById('btnTestAllProxies');
 
 // DOM Elements: Change Password Form
 const changePasswordForm = document.getElementById('changePasswordForm');
@@ -181,6 +204,7 @@ function setupUIForUser() {
   showMainView();
   userBadgeName.textContent = currentUser.username;
   updateBotDropdown();
+  fetchProxies();
 }
 
 // -------------------------------------------------------------
@@ -235,6 +259,11 @@ function initWebSocket() {
 
 function handleWsInit(msg) {
   availableBots = msg.bots || [];
+  if (msg.proxies) {
+    availableProxies = msg.proxies;
+    renderProxyTable();
+    updateProxyDropdowns();
+  }
   activeBotId = msg.activeBotId || (availableBots[0] ? availableBots[0].id : null);
 
   updateBotDropdown();
@@ -277,6 +306,7 @@ function resetEmptyBotUI() {
   infoProfileName.textContent = '-';
   targetServer.textContent = '-';
   botName.textContent = '-';
+  if (infoRoute) infoRoute.textContent = '-';
   mcVersion.textContent = '-';
   settingsProfileLabel.textContent = 'No Profile Selected';
   termBotName.textContent = 'None';
@@ -295,6 +325,7 @@ function resetEmptyBotUI() {
   terminal.innerHTML = '<div class="log-entry log-system">[SYSTEM] No bot profiles exist yet. Click "+ New" in the header to create your first Minecraft bot.</div>';
 
   if (cfgProfileName) cfgProfileName.value = '';
+  if (cfgProxySelect) cfgProxySelect.value = 'direct';
   if (cfgHost) cfgHost.value = '';
   if (cfgPort) cfgPort.value = 25565;
   if (cfgUsername) cfgUsername.value = '';
@@ -354,6 +385,22 @@ function applyBotData(data, replaceLogs = true) {
     targetServer.textContent = `${data.mcConfig.host}:${data.mcConfig.port}`;
     botName.textContent = data.mcConfig.username;
     mcVersion.textContent = data.mcConfig.version || 'Automatic';
+  }
+
+  // Route / Proxy Display
+  if (infoRoute) {
+    const pId = data.proxyId || (data.fullConfig && data.fullConfig.proxyId) || 'direct';
+    if (pId === 'direct') {
+      infoRoute.textContent = 'Direct (Server IP)';
+      infoRoute.style.color = 'var(--text-muted)';
+    } else if (pId === 'random') {
+      infoRoute.textContent = '🎲 Random Pool Proxy';
+      infoRoute.style.color = 'var(--primary)';
+    } else {
+      const p = availableProxies.find(x => x.id === pId) || data.proxyInfo;
+      infoRoute.textContent = p ? `🛡️ ${p.name}` : `🛡️ ${pId}`;
+      infoRoute.style.color = 'var(--primary)';
+    }
   }
 
   // Status Badge
@@ -445,6 +492,7 @@ function populateSettingsForm(cfg) {
   if (cfgPort && activeEl !== cfgPort) cfgPort.value = cfg.port || 25565;
   if (cfgUsername && activeEl !== cfgUsername) cfgUsername.value = cfg.username || '';
   if (cfgVersion && activeEl !== cfgVersion) cfgVersion.value = cfg.version || '';
+  if (cfgProxySelect && activeEl !== cfgProxySelect) cfgProxySelect.value = cfg.proxyId || 'direct';
   if (cfgReconnectDelaySec && activeEl !== cfgReconnectDelaySec) cfgReconnectDelaySec.value = cfg.reconnectDelaySec ?? 10;
   if (cfgOnJoinCommands && activeEl !== cfgOnJoinCommands) cfgOnJoinCommands.value = cfg.onJoinCommands || '';
   if (cfgOnJoinDelaySec && activeEl !== cfgOnJoinDelaySec) cfgOnJoinDelaySec.value = cfg.onJoinDelaySec ?? 3;
@@ -619,6 +667,7 @@ configForm.addEventListener('submit', async e => {
     port: parseInt(cfgPort.value, 10) || 25565,
     username: cfgUsername.value.trim(),
     version: cfgVersion.value.trim(),
+    proxyId: cfgProxySelect ? cfgProxySelect.value : 'direct',
     reconnectDelaySec: parseInt(cfgReconnectDelaySec.value, 10) || 10,
     onJoinCommandsInput: cfgOnJoinCommands.value,
     onJoinDelaySec: parseInt(cfgOnJoinDelaySec.value, 10) || 3,
@@ -823,6 +872,7 @@ formCreateBot.addEventListener('submit', async e => {
         host,
         port,
         username,
+        proxyId: newBotProxy ? newBotProxy.value : 'direct',
         onJoinCommands: onJoinCmds,
       }),
     });
@@ -898,7 +948,319 @@ changePasswordForm.addEventListener('submit', async e => {
 });
 
 // -------------------------------------------------------------
-// 9. Tab Navigation
+// 9. Proxy Pool Management (Tab 3)
+// -------------------------------------------------------------
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+async function fetchProxies() {
+  if (!authToken) return;
+  try {
+    const res = await fetch('/api/proxies', {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    const data = await res.json();
+    if (data.success && Array.isArray(data.proxies)) {
+      availableProxies = data.proxies;
+      renderProxyTable();
+      updateProxyDropdowns();
+    }
+  } catch (err) {
+    console.error('Failed to fetch proxies:', err);
+  }
+}
+
+function updateProxyDropdowns() {
+  const selects = [cfgProxySelect, newBotProxy].filter(Boolean);
+
+  selects.forEach(sel => {
+    const currentValue = sel.value;
+    sel.innerHTML = `
+      <option value="direct">Direct Connection (Server IP / No Proxy)</option>
+      <option value="random">Random Proxy from Pool</option>
+    `;
+
+    if (availableProxies.length > 0) {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = 'Proxy Pool';
+      availableProxies.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `🛡️ ${p.name} (${p.host}:${p.port})`;
+        optgroup.appendChild(opt);
+      });
+      sel.appendChild(optgroup);
+    }
+
+    if (currentValue) {
+      sel.value = currentValue;
+    }
+  });
+}
+
+function renderProxyTable() {
+  if (!proxyTableBody) return;
+  proxyTableBody.innerHTML = '';
+
+  if (availableProxies.length === 0) {
+    if (emptyProxyState) emptyProxyState.style.display = 'block';
+    if (proxyTableBody.closest('.table-responsive')) {
+      proxyTableBody.closest('.table-responsive').style.display = 'none';
+    }
+    return;
+  }
+
+  if (emptyProxyState) emptyProxyState.style.display = 'none';
+  if (proxyTableBody.closest('.table-responsive')) {
+    proxyTableBody.closest('.table-responsive').style.display = 'block';
+  }
+
+  availableProxies.forEach(p => {
+    const tr = document.createElement('tr');
+    const result = proxyTestResults[p.id];
+
+    let statusHtml = '<span class="status-dot dot-gray" title="Untested"></span>';
+    let pingText = '<span style="color: var(--text-faint);">-</span>';
+
+    if (result) {
+      if (result.testing) {
+        statusHtml = '<span class="status-dot dot-yellow animate-pulse" title="Testing..."></span>';
+        pingText = '<span style="color: var(--warning); font-size: 0.78rem;">Testing...</span>';
+      } else if (result.success) {
+        statusHtml = '<span class="status-dot dot-green" title="Online"></span>';
+        pingText = `<span style="color: var(--primary); font-weight: 600;">${result.latencyMs} ms</span>`;
+      } else {
+        statusHtml = `<span class="status-dot dot-red" title="${escapeHtml(result.error || 'Connection failed')}"></span>`;
+        pingText = `<span style="color: var(--danger); font-size: 0.74rem;" title="${escapeHtml(result.error || 'Failed')}">Failed</span>`;
+      }
+    }
+
+    tr.innerHTML = `
+      <td style="width: 48px; text-align: center;">${statusHtml}</td>
+      <td><strong>${escapeHtml(p.name)}</strong></td>
+      <td><code>${escapeHtml(p.host)}:${p.port}</code></td>
+      <td><span class="badge ${p.hasAuth ? 'badge-primary' : 'badge-ghost'}">${p.hasAuth ? 'Protected' : 'None'}</span></td>
+      <td>${pingText}</td>
+      <td style="text-align: right;">
+        <div class="table-actions" style="justify-content: flex-end;">
+          <button type="button" class="btn btn-ghost btn-xs btn-test-proxy" data-id="${p.id}" title="Test proxy connection">⚡ Test</button>
+          <button type="button" class="btn btn-danger btn-xs btn-delete-proxy" data-id="${p.id}" title="Delete proxy">Delete</button>
+        </div>
+      </td>
+    `;
+    proxyTableBody.appendChild(tr);
+  });
+
+  // Attach row action listeners
+  proxyTableBody.querySelectorAll('.btn-test-proxy').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-id');
+      testSingleProxy(id);
+    });
+  });
+
+  proxyTableBody.querySelectorAll('.btn-delete-proxy').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-id');
+      deleteSingleProxy(id);
+    });
+  });
+}
+
+async function testSingleProxy(id) {
+  proxyTestResults[id] = { testing: true };
+  renderProxyTable();
+
+  try {
+    const res = await fetch(`/api/proxies/${id}/test`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    const data = await res.json();
+    proxyTestResults[id] = data;
+  } catch (err) {
+    proxyTestResults[id] = { success: false, error: err.message };
+  }
+  renderProxyTable();
+}
+
+async function testAllProxies() {
+  if (availableProxies.length === 0) return;
+  availableProxies.forEach(p => {
+    proxyTestResults[p.id] = { testing: true };
+  });
+  renderProxyTable();
+
+  try {
+    const res = await fetch('/api/proxies/test-all', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    const data = await res.json();
+    if (data.results && Array.isArray(data.results)) {
+      data.results.forEach(r => {
+        if (r.id) proxyTestResults[r.id] = r;
+      });
+    }
+  } catch (err) {
+    console.error('Test all proxies failed:', err);
+  }
+  renderProxyTable();
+}
+
+async function deleteSingleProxy(id) {
+  const p = availableProxies.find(x => x.id === id);
+  const name = p ? p.name : 'this proxy';
+  if (!confirm(`Delete proxy "${name}" from the pool?`)) return;
+
+  try {
+    const res = await fetch(`/api/proxies/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    const data = await res.json();
+    if (data.success) {
+      availableProxies = availableProxies.filter(x => x.id !== id);
+      delete proxyTestResults[id];
+      renderProxyTable();
+      updateProxyDropdowns();
+      if (activeBotData) {
+        applyBotData(activeBotData, false);
+      }
+    } else {
+      alert('Failed to delete proxy: ' + (data.error || 'Unknown'));
+    }
+  } catch (err) {
+    alert('Network error: ' + err.message);
+  }
+}
+
+// Quick Import String Parser (supports socks5://user:pass@host:port, host:port:user:pass, host:port)
+if (proxyQuickImport) {
+  proxyQuickImport.addEventListener('input', () => {
+    const raw = proxyQuickImport.value.trim();
+    if (!raw) return;
+
+    let clean = raw.replace(/^socks5:\/\//i, '');
+    let host = '';
+    let port = '1080';
+    let user = '';
+    let pass = '';
+
+    if (clean.includes('@')) {
+      // user:pass@host:port
+      const [authPart, hostPart] = clean.split('@');
+      if (authPart.includes(':')) {
+        [user, pass] = authPart.split(':');
+      } else {
+        user = authPart;
+      }
+      if (hostPart.includes(':')) {
+        [host, port] = hostPart.split(':');
+      } else {
+        host = hostPart;
+      }
+    } else if (clean.split(':').length === 4) {
+      // host:port:user:pass
+      const parts = clean.split(':');
+      host = parts[0];
+      port = parts[1];
+      user = parts[2];
+      pass = parts[3];
+    } else if (clean.split(':').length === 2) {
+      // host:port
+      [host, port] = clean.split(':');
+    }
+
+    if (host) newProxyHost.value = host;
+    if (port) newProxyPort.value = port;
+    if (user) newProxyUser.value = user;
+    if (pass) newProxyPass.value = pass;
+    if (host && !newProxyName.value) {
+      newProxyName.value = `SOCKS5 (${host})`;
+    }
+  });
+}
+
+// Modal: Add Proxy
+if (btnOpenAddProxyModal) {
+  btnOpenAddProxyModal.addEventListener('click', () => {
+    modalAddProxy.style.display = 'flex';
+    formAddProxy.reset();
+  });
+}
+
+if (btnEmptyAddProxy) {
+  btnEmptyAddProxy.addEventListener('click', () => {
+    modalAddProxy.style.display = 'flex';
+    formAddProxy.reset();
+  });
+}
+
+[btnCloseAddProxyModal, btnCancelAddProxy].forEach(el => {
+  if (el) {
+    el.addEventListener('click', () => {
+      modalAddProxy.style.display = 'none';
+    });
+  }
+});
+
+if (formAddProxy) {
+  formAddProxy.addEventListener('submit', async e => {
+    e.preventDefault();
+    const name = newProxyName.value.trim();
+    const host = newProxyHost.value.trim();
+    const port = parseInt(newProxyPort.value, 10) || 1080;
+    const username = newProxyUser.value.trim();
+    const password = newProxyPass.value.trim();
+
+    try {
+      const res = await fetch('/api/proxies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ name, host, port, username, password }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.proxy) {
+        modalAddProxy.style.display = 'none';
+        formAddProxy.reset();
+        availableProxies.push({
+          id: data.proxy.id,
+          name: data.proxy.name,
+          host: data.proxy.host,
+          port: data.proxy.port,
+          username: data.proxy.username,
+          hasAuth: !!(data.proxy.username && data.proxy.password),
+          type: 5,
+        });
+        renderProxyTable();
+        updateProxyDropdowns();
+
+        // Automatically test the newly added proxy
+        testSingleProxy(data.proxy.id);
+      } else {
+        alert('Error adding proxy: ' + (data.error || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('Network error: ' + err.message);
+    }
+  });
+}
+
+if (btnTestAllProxies) {
+  btnTestAllProxies.addEventListener('click', testAllProxies);
+}
+
+// -------------------------------------------------------------
+// 10. Tab Navigation
 // -------------------------------------------------------------
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {

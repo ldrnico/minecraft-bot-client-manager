@@ -124,6 +124,7 @@ The client uses official, secure **Microsoft Device Code Authentication** (you n
 ## ✨ Features
 
 * **Multi-Bot Profiles:** Manage multiple accounts and servers simultaneously. Switch bots with a single click in the header dropdown.
+* **SOCKS5 Proxy Pool:** Assign distinct external IP addresses to individual bots to bypass multi-accounting IP restrictions and AFK reward limits. Features live latency ping tests and quick format import.
 * **Auto-Rejoin Toggle:** Automatically reconnects after server kicks or restarts.
 * **Periodic Reconnect:** Disconnects and reconnects on a customizable interval (e.g. every 30 minutes) with a live countdown display.
 * **Live Console & Chat:** Watch server messages and chat logs in real-time.

@@ -10,6 +10,7 @@ yarn-error.log*
 .env.*.local
 admin.json
 bots.json
+proxies.json
 
 # Microsoft authentication token cache
 auth-cache/
