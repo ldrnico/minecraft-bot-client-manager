@@ -2,6 +2,7 @@ require('dotenv').config();
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const crypto = require('crypto');
 const express = require('express');
 const WebSocket = require('ws');
@@ -15,6 +16,29 @@ process.on('uncaughtException', err => {
 process.on('unhandledRejection', reason => {
   console.error('[UNHANDLED REJECTION]', reason);
 });
+
+// System Resource Metrics
+function formatBytes(bytes) {
+  if (bytes >= 1024 * 1024 * 1024) {
+    return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+  }
+  return Math.round(bytes / (1024 * 1024)) + ' MB';
+}
+
+function getSystemMemory() {
+  const total = os.totalmem();
+  const free = os.freemem();
+  const used = Math.max(0, total - free);
+  const percent = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+  return {
+    totalBytes: total,
+    usedBytes: used,
+    freeBytes: free,
+    percent,
+    totalFormatted: formatBytes(total),
+    usedFormatted: formatBytes(used),
+  };
+}
 
 // Configuration & Ports
 const PORT = process.env.WEB_PORT || 3000;
@@ -1135,6 +1159,11 @@ app.post('/api/auth/login', (req, res) => {
 });
 
 // Get admin profile & list of all bots
+// System resource stats
+app.get('/api/system/stats', authMiddleware, (req, res) => {
+  res.json({ success: true, memory: getSystemMemory() });
+});
+
 app.get('/api/auth/me', authMiddleware, (req, res) => {
   res.json({
     user: {
@@ -1393,6 +1422,7 @@ wss.on('connection', (ws, req) => {
       },
       bots: availableBots,
       proxies: proxyManager.getAll(),
+      systemMemory: getSystemMemory(),
       activeBotId: firstBotId,
       botData: activeBot
         ? {
@@ -1451,6 +1481,19 @@ server.listen(PORT, () => {
   console.log(` Minecraft Client Manager running on port ${PORT}`);
   console.log(` Web Access: http://localhost:${PORT}`);
   console.log(`====================================================`);
+
+  // Periodic system metrics broadcast (every 3 seconds)
+setInterval(() => {
+  if (wss.clients.size > 0) {
+    const mem = getSystemMemory();
+    const payload = JSON.stringify({ action: 'system_stats', data: { memory: mem } });
+    wss.clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN && client.user) {
+        client.send(payload);
+      }
+    });
+  }
+}, 3000);
 
   // Load and initialize bots
   botManager.init((action, botId, data) => {

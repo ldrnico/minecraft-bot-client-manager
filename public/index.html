@@ -40,77 +40,108 @@
     </div>
   </div>
 
-  <!-- MAIN APP VIEW -->
-  <div id="mainAppView" class="app-container" style="display: none;">
-    <!-- Header -->
-    <header class="dashboard-header">
-      <div class="logo-area">
+  <!-- MAIN APP VIEW WITH SIDEBAR -->
+  <div id="mainAppView" class="app-layout" style="display: none;">
+    <!-- LEFT SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
         <div class="brand-mark">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 3.5 7.25v9.5L12 21.5l8.5-4.75v-9.5z"/><path d="m3.5 7.25 8.5 4.75 8.5-4.75"/><path d="M12 12v9.5"/></svg>
         </div>
         <div class="brand-text">
           <h1>Client Manager</h1>
-          <span class="subtitle">Headless Minecraft Bots</span>
+          <span class="subtitle">Headless Bots</span>
         </div>
       </div>
 
-      <div class="header-center">
+      <nav class="sidebar-nav">
+        <button class="nav-item tab-btn active" data-tab="tabDashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nav-icon"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <span>Dashboard</span>
+        </button>
+
+        <button class="nav-item tab-btn" data-tab="tabSettings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nav-icon"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>Bot Settings</span>
+        </button>
+
+        <button class="nav-item tab-btn" data-tab="tabProxies">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nav-icon"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span>Proxy Pool</span>
+        </button>
+
+        <button class="nav-item tab-btn" data-tab="tabAccount">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nav-icon"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span>Change Password</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <span class="sidebar-credit">Made by melonengolemm</span>
+        <a href="https://github.com/ldrnico" target="_blank" rel="noopener noreferrer" class="sidebar-gh-link">GitHub</a>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT AREA -->
+    <div class="main-content">
+      <!-- Header -->
+      <header class="dashboard-header">
         <div class="header-bot-bar">
           <label for="botSelect" class="header-label">Profile</label>
           <select id="botSelect" class="bot-dropdown"></select>
           <button id="btnOpenCreateBotModal" class="btn btn-ghost btn-sm" title="Create a new bot profile">+ New</button>
         </div>
-      </div>
 
-      <div class="header-right">
-        <div id="statusBadge" class="status-badge disconnected">
-          <span class="status-dot"></span>
-          <span id="statusText">Disconnected</span>
+        <div class="header-right">
+          <!-- Server RAM Gauge -->
+          <div class="server-ram-pill" id="serverRamPill" title="Total Server RAM Usage (Live)">
+            <div class="ram-pill-header">
+              <span class="ram-pill-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ram-icon"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3"/><path d="M15 1v3"/><path d="M9 20v3"/><path d="M15 20v3"/><path d="M20 9h3"/><path d="M20 14h3"/><path d="M1 9h3"/><path d="M1 14h3"/></svg>
+                RAM
+              </span>
+              <span class="ram-pill-val" id="serverRamVal">-- / --</span>
+            </div>
+            <div class="ram-pill-track">
+              <div class="ram-pill-fill" id="serverRamFill" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <div id="statusBadge" class="status-badge disconnected">
+            <span class="status-dot"></span>
+            <span id="statusText">Disconnected</span>
+          </div>
+
+          <button id="btnLogout" class="btn btn-ghost btn-sm" title="Sign out">Logout</button>
         </div>
+      </header>
 
-        <div id="userBadge" class="user-pill">
-          <span class="user-avatar"></span>
-          <span id="userBadgeName">admin</span>
+      <!-- Info Bar -->
+      <div class="info-bar">
+        <div class="info-item">
+          <span class="info-label">Active Profile</span>
+          <span id="infoProfileName" class="info-value">...</span>
         </div>
+        <div class="info-item">
+          <span class="info-label">Server</span>
+          <span id="targetServer" class="info-value">...</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Player</span>
+          <span id="botName" class="info-value">...</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Route</span>
+          <span id="infoRoute" class="info-value">Direct</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Version</span>
+          <span id="mcVersion" class="info-value">Automatic</span>
+        </div>
+      </div>
 
-        <button id="btnLogout" class="btn btn-ghost btn-sm" title="Sign out">Logout</button>
-      </div>
-    </header>
-
-    <!-- Info Bar -->
-    <div class="info-bar">
-      <div class="info-item">
-        <span class="info-label">Active Profile</span>
-        <span id="infoProfileName" class="info-value">...</span>
-      </div>
-      <div class="info-item">
-        <span class="info-label">Server</span>
-        <span id="targetServer" class="info-value">...</span>
-      </div>
-      <div class="info-item">
-        <span class="info-label">Player</span>
-        <span id="botName" class="info-value">...</span>
-      </div>
-      <div class="info-item">
-        <span class="info-label">Route</span>
-        <span id="infoRoute" class="info-value">Direct</span>
-      </div>
-      <div class="info-item">
-        <span class="info-label">Version</span>
-        <span id="mcVersion" class="info-value">Automatic</span>
-      </div>
-    </div>
-
-    <!-- Tab Navigation -->
-    <nav class="tabs-nav">
-      <button class="tab-btn active" data-tab="tabDashboard">Dashboard</button>
-      <button class="tab-btn" data-tab="tabSettings">Bot Settings</button>
-      <button class="tab-btn" data-tab="tabProxies">Proxy Pool</button>
-      <button class="tab-btn" data-tab="tabAccount">Change Password</button>
-    </nav>
-
-    <!-- TAB 1: DASHBOARD -->
-    <div id="tabDashboard" class="tab-content active">
+      <!-- TAB 1: DASHBOARD -->
+      <div id="tabDashboard" class="tab-content active">
       <!-- Microsoft Login Alert Box -->
       <div id="msaAlertBox" class="msa-alert-card" style="display: none;">
         <div class="msa-alert-icon">
@@ -380,7 +411,8 @@
       <span>Client Manager &middot; Minecraft Bots</span>
       <span>Made by melonengolemm &middot; <a href="https://github.com/ldrnico" target="_blank" rel="noopener noreferrer">GitHub</a></span>
     </footer>
-  </div>
+  </div><!-- /.main-content -->
+  </div><!-- /#mainAppView -->
 
   <!-- MODAL: CREATE BOT PROFILE -->
   <div id="modalCreateBot" class="modal-backdrop" style="display: none;">

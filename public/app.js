@@ -18,6 +18,10 @@ const loginUsername = document.getElementById('loginUsername');
 const loginPassword = document.getElementById('loginPassword');
 const loginError = document.getElementById('loginError');
 const btnLogout = document.getElementById('btnLogout');
+// DOM Elements: Server RAM Gauge
+const serverRamPill = document.getElementById('serverRamPill');
+const serverRamVal = document.getElementById('serverRamVal');
+const serverRamFill = document.getElementById('serverRamFill');
 
 // DOM Elements: Header & Profile Switcher
 const botSelect = document.getElementById('botSelect');
@@ -110,6 +114,24 @@ const accNewPassConfirm = document.getElementById('accNewPassConfirm');
 const accountFeedback = document.getElementById('accountFeedback');
 
 // -------------------------------------------------------------
+// Server System Metrics UI (Dynamic RAM Usage)
+// -------------------------------------------------------------
+function updateServerMemoryUI(mem) {
+  if (!mem || !serverRamVal || !serverRamFill) return;
+  serverRamVal.textContent = `${mem.usedFormatted} / ${mem.totalFormatted} (${mem.percent}%)`;
+  serverRamFill.style.width = `${Math.min(100, Math.max(0, mem.percent))}%`;
+
+  if (serverRamPill) {
+    serverRamPill.classList.remove('warning', 'danger');
+    if (mem.percent >= 88) {
+      serverRamPill.classList.add('danger');
+    } else if (mem.percent >= 75) {
+      serverRamPill.classList.add('warning');
+    }
+  }
+}
+
+// -------------------------------------------------------------
 // 1. Initial Authentication & Verification
 // -------------------------------------------------------------
 async function initApp() {
@@ -149,7 +171,7 @@ function showLoginView() {
 
 function showMainView() {
   loginView.style.display = 'none';
-  mainAppView.style.display = 'block';
+  mainAppView.style.display = 'flex';
 }
 
 function logout() {
@@ -202,9 +224,10 @@ loginForm.addEventListener('submit', async e => {
 
 function setupUIForUser() {
   showMainView();
-  userBadgeName.textContent = currentUser.username;
+  if (userBadgeName) userBadgeName.textContent = currentUser.username;
   updateBotDropdown();
   fetchProxies();
+  fetch('/api/system/stats', { headers: { Authorization: `Bearer ${authToken}` } }).then(r => r.json()).then(d => { if (d.success && d.memory) updateServerMemoryUI(d.memory); }).catch(() => {});
 }
 
 // -------------------------------------------------------------
@@ -235,6 +258,8 @@ function initWebSocket() {
         handleBotSelected(msg);
       } else if (msg.action === 'state') {
         handleStateUpdate(msg);
+      } else if (msg.action === 'system_stats') {
+        if (msg.data && msg.data.memory) updateServerMemoryUI(msg.data.memory);
       } else if (msg.action === 'log') {
         handleLogEntry(msg);
       } else if (msg.action === 'auth_error') {
@@ -258,6 +283,7 @@ function initWebSocket() {
 }
 
 function handleWsInit(msg) {
+  if (msg.systemMemory) updateServerMemoryUI(msg.systemMemory);
   availableBots = msg.bots || [];
   if (msg.proxies) {
     availableProxies = msg.proxies;
