@@ -2,7 +2,7 @@
 
 An ultra-lightweight, headless Minecraft client manager built with **Node.js (v22 LTS) & Mineflayer**, specially optimized for **Ubuntu Linux Servers (even with just 1 GB RAM)**.
 
-Run multiple Minecraft accounts simultaneously across different servers with an isolated **multi-bot engine**, integrated **SOCKS5 Proxy Pool (multi-IP routing to bypass AFK/account limits)**, automatic re-join, anti-AFK arm swinging, in-game chat & commands, and a modern reactive dark-mode web dashboard.
+Run multiple Minecraft accounts simultaneously across different servers with an isolated **multi-bot engine**, integrated **SOCKS5 Proxy Pool (multi-IP routing to bypass AFK/account limits)**, automatic re-join, anti-AFK arm swinging, in-game chat & commands, and a modern reactive web dashboard.
 
 > 🛡️ **Featured Capability — SOCKS5 Proxy Pool:** Assign distinct external IP addresses to individual bot profiles directly from the web interface. Bypass server-side AFK reward limits and multi-accounting IP blocks with live TCP ping/latency testing and quick-import parsing (`host:port:user:pass`).
 
